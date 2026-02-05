@@ -78,7 +78,10 @@ export const onRequest = async ({ request, env }: PagesContext) => {
         },
       };
 
-      return createContext({ req: reqLike, res: resLike });
+      return createContext({
+        req: reqLike,
+        res: resLike,
+      });
     },
     onError({ error, path }) {
       console.error("[tRPC] Error", { path, error });

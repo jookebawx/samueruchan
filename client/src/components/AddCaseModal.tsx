@@ -48,7 +48,7 @@ export function AddCaseModal({ onClose, onSuccess }: AddCaseModalProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const utils = trpc.useUtils();
   const createMutation = trpc.caseStudies.create.useMutation({
     onSuccess: () => utils.caseStudies.list.invalidate(),
@@ -130,6 +130,10 @@ export function AddCaseModal({ onClose, onSuccess }: AddCaseModalProps) {
     if (!isAuthenticated) {
       toast.error("ログインが必要です");
       window.location.href = getLoginUrl();
+      return;
+    }
+    if (user?.loginMethod !== "google") {
+      toast.error("Google login required to post.");
       return;
     }
     setIsSaving(true);

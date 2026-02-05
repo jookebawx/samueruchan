@@ -102,6 +102,12 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input, ctx }) => {
+        if (ctx.user.loginMethod !== "google") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Google login required to post.",
+          });
+        }
         // AIでタグを自動生成
         const tags = await generateTags({
           title: input.title,

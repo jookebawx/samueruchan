@@ -27,7 +27,8 @@ const categories = [
 
 export default function Home() {
   const utils = trpc.useUtils();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const canPost = isAuthenticated && user?.loginMethod === "google";
   const listQuery = trpc.caseStudies.list.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
@@ -113,6 +114,10 @@ export default function Home() {
       window.location.href = getLoginUrl();
       return;
     }
+    if (user?.loginMethod !== "google") {
+      toast.error("Google login required to post.");
+      return;
+    }
     setIsAddModalOpen(true);
   };
 
@@ -176,6 +181,7 @@ export default function Home() {
                 <span className="text-sm font-medium">AIに相談する</span>
               </a>
 
+              {canPost && (
               <Button
                 onClick={handleAddClick}
                 variant="outline"
@@ -184,6 +190,7 @@ export default function Home() {
                 <Plus className="w-4 h-4" />
                 <span className="text-sm">事例を追加</span>
               </Button>
+              )}
             </div>
           </div>
 
