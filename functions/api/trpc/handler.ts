@@ -1,9 +1,9 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { serialize, type CookieSerializeOptions } from "cookie";
-import { appRouter } from "../../server/routers";
-import { createContext } from "../../server/_core/context";
-import { initEnv } from "../../server/_core/env";
-import { initDb } from "../../server/db";
+import { appRouter } from "../../../server/routers";
+import { createContext } from "../../../server/_core/context";
+import { initEnv } from "../../../server/_core/env";
+import { initDb } from "../../../server/db";
 
 type Env = {
   DB?: D1Database;
@@ -53,7 +53,7 @@ const normalizeCookieOptions = (
   return result;
 };
 
-export const onRequest = async ({ request, env }: PagesContext) => {
+export const handleTrpcRequest = async ({ request, env }: PagesContext) => {
   initEnv(toEnvRecord(env));
   const dbBinding = env.DB ?? env.test_database;
   initDb(dbBinding);
