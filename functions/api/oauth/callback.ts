@@ -10,7 +10,7 @@ type Env = {
   test_database?: D1Database;
   VITE_APP_ID?: string;
   JWT_SECRET?: string;
-  OAUTH_SERVER_URL?: string;
+  GOOGLE_CLIENT_SECRET?: string;
   OWNER_OPEN_ID?: string;
   BUILT_IN_FORGE_API_URL?: string;
   BUILT_IN_FORGE_API_KEY?: string;

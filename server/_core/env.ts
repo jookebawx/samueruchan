@@ -29,6 +29,9 @@ export const ENV = {
   get oAuthServerUrl() {
     return readEnv("OAUTH_SERVER_URL");
   },
+  get googleClientSecret() {
+    return readEnv("GOOGLE_CLIENT_SECRET");
+  },
   get ownerOpenId() {
     return readEnv("OWNER_OPEN_ID");
   },
