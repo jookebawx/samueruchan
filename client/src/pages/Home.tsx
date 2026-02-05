@@ -121,6 +121,10 @@ export default function Home() {
     setIsAddModalOpen(true);
   };
 
+  const handleLoginClick = () => {
+    window.location.href = getLoginUrl();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -181,16 +185,24 @@ export default function Home() {
                 <span className="text-sm font-medium">AIに相談する</span>
               </a>
 
-              {canPost && (
-              <Button
-                onClick={handleAddClick}
-                variant="outline"
-                className="flex items-center gap-2 rounded-full"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="text-sm">事例を追加</span>
-              </Button>
-              )}
+              {!isAuthenticated ? (
+                <Button
+                  onClick={handleLoginClick}
+                  variant="outline"
+                  className="flex items-center gap-2 rounded-full"
+                >
+                  <span className="text-sm">Googleでログイン</span>
+                </Button>
+              ) : canPost ? (
+                <Button
+                  onClick={handleAddClick}
+                  variant="outline"
+                  className="flex items-center gap-2 rounded-full"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="text-sm">事例を追加</span>
+                </Button>
+              ) : null}
             </div>
           </div>
 
