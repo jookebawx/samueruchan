@@ -1,7 +1,8 @@
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME, NOT_ADMIN_ERR_MSG } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
@@ -154,6 +155,21 @@ export const appRouter = router({
         isFavorite: true,
       }));
     }),
+
+    // delete case study
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const caseStudy = await db.getCaseStudyById(input.id);
+        if (!caseStudy) return { success: false };
+
+        if (caseStudy.userId !== ctx.user.id && ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+        }
+
+        await db.deleteCaseStudy(input.id);
+        return { success: true };
+      }),
 
     // 画像アップロード
     uploadImage: protectedProcedure

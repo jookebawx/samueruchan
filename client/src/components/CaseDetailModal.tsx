@@ -1,4 +1,4 @@
-import { type CaseStudy } from "@/lib/localCaseStudies";
+import { type CaseStudy } from "@/lib/caseStudies";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {

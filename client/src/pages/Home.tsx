@@ -1,9 +1,6 @@
-import {
-  deleteCaseStudy,
-  listCaseStudies,
-  toggleFavorite,
-  type CaseStudy,
-} from "@/lib/localCaseStudies";
+import { type CaseStudy } from "@/lib/caseStudies";
+import { getLoginUrl } from "@/const";
+import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +11,8 @@ import { AddCaseModal } from "@/components/AddCaseModal";
 import { CaseDetailModal } from "@/components/CaseDetailModal";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { toast } from "sonner";
 
 type Category = "all" | "liked" | "prompt" | "automation" | "tools" | "business";
 
@@ -27,12 +26,23 @@ const categories = [
 ];
 
 export default function Home() {
-  const [cases, setCases] = useState<CaseStudy[]>(() => listCaseStudies());
+  const utils = trpc.useUtils();
+  const { isAuthenticated } = useAuth();
+  const listQuery = trpc.caseStudies.list.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+  const cases: CaseStudy[] = listQuery.data ?? [];
   const [activeCategory, setActiveCategory] = useState<Category>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { theme, toggleTheme, switchable } = useTheme();
+  const toggleFavoriteMutation = trpc.caseStudies.toggleFavorite.useMutation({
+    onSuccess: () => utils.caseStudies.list.invalidate(),
+  });
+  const deleteMutation = trpc.caseStudies.delete.useMutation({
+    onSuccess: () => utils.caseStudies.list.invalidate(),
+  });
   const selectedCase = selectedCaseId
     ? cases.find((item) => item.id === selectedCaseId) ?? null
     : null;
@@ -67,18 +77,43 @@ export default function Home() {
     return counts;
   }, [cases]);
 
-  const handleFavoriteClick = (e: React.MouseEvent, caseId: number) => {
+  const handleFavoriteClick = async (e: React.MouseEvent, caseId: number) => {
     e.stopPropagation();
-    toggleFavorite(caseId);
-    setCases(listCaseStudies());
+    if (!isAuthenticated) {
+      window.location.href = getLoginUrl();
+      return;
+    }
+    try {
+      await toggleFavoriteMutation.mutateAsync({ caseStudyId: caseId });
+    } catch (error) {
+      console.error(error);
+      toast.error("お気に入りの更新に失敗しました");
+    }
   };
 
-  const handleDeleteCase = (caseId: number) => {
+  const handleDeleteCase = async (caseId: number) => {
     if (!window.confirm("Delete this case study?")) return;
-    const deleted = deleteCaseStudy(caseId);
-    if (!deleted) return;
-    setCases(listCaseStudies());
-    setSelectedCaseId(null);
+    if (!isAuthenticated) {
+      window.location.href = getLoginUrl();
+      return;
+    }
+    try {
+      const result = await deleteMutation.mutateAsync({ id: caseId });
+      if (result?.success) {
+        setSelectedCaseId(null);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("削除に失敗しました");
+    }
+  };
+
+  const handleAddClick = () => {
+    if (!isAuthenticated) {
+      window.location.href = getLoginUrl();
+      return;
+    }
+    setIsAddModalOpen(true);
   };
 
   return (
@@ -142,7 +177,7 @@ export default function Home() {
               </a>
 
               <Button
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={handleAddClick}
                 variant="outline"
                 className="flex items-center gap-2 rounded-full"
               >
@@ -177,7 +212,11 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="container py-12">
-        {filteredCases.length > 0 ? (
+        {listQuery.isLoading ? (
+          <div className="text-center py-20">
+            <p className="text-muted-foreground text-lg">読み込み中...</p>
+          </div>
+        ) : filteredCases.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredCases.map((caseStudy) => (
               <Card
@@ -254,7 +293,7 @@ export default function Home() {
           onClose={() => setIsAddModalOpen(false)}
           onSuccess={() => {
             setIsAddModalOpen(false);
-            setCases(listCaseStudies());
+            utils.caseStudies.list.invalidate();
           }}
         />
       )}

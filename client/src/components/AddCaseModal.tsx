@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { createCaseStudy } from "@/lib/localCaseStudies";
+import { getLoginUrl } from "@/const";
+import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 interface AddCaseModalProps {
   onClose: () => void;
@@ -46,6 +48,11 @@ export function AddCaseModal({ onClose, onSuccess }: AddCaseModalProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const utils = trpc.useUtils();
+  const createMutation = trpc.caseStudies.create.useMutation({
+    onSuccess: () => utils.caseStudies.list.invalidate(),
+  });
 
   const readFileAsDataUrl = (file: Blob) =>
     new Promise<string>((resolve, reject) => {
@@ -111,6 +118,7 @@ export function AddCaseModal({ onClose, onSuccess }: AddCaseModalProps) {
       setImagePreview(compressedDataUrl);
     } catch (error) {
       console.error(error);
+      console.error(error);
       toast.error("画像の圧縮に失敗しました");
       setImagePreview(null);
     }
@@ -119,6 +127,11 @@ export function AddCaseModal({ onClose, onSuccess }: AddCaseModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
+    if (!isAuthenticated) {
+      toast.error("ログインが必要です");
+      window.location.href = getLoginUrl();
+      return;
+    }
     setIsSaving(true);
 
     const toolsArray = formData.tools
@@ -134,7 +147,7 @@ export function AddCaseModal({ onClose, onSuccess }: AddCaseModalProps) {
     const thumbnailUrl = imagePreview ?? undefined;
 
     try {
-      createCaseStudy({
+      await createMutation.mutateAsync({
         title: formData.title,
         description: formData.description,
         category: formData.category,

@@ -6,7 +6,8 @@ import { sdk } from "../../../server/_core/sdk";
 import * as db from "../../../server/db";
 
 type Env = {
-  DB: D1Database;
+  DB?: D1Database;
+  test_database?: D1Database;
   VITE_APP_ID?: string;
   JWT_SECRET?: string;
   OAUTH_SERVER_URL?: string;
@@ -40,7 +41,8 @@ const headersToObject = (headers: Headers) => {
 
 export const onRequest = async ({ request, env }: PagesContext) => {
   initEnv(toEnvRecord(env));
-  db.initDb(env.DB);
+  const dbBinding = env.DB ?? env.test_database;
+  db.initDb(dbBinding);
 
   const url = new URL(request.url);
   const code = url.searchParams.get("code");

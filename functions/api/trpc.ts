@@ -6,7 +6,8 @@ import { initEnv } from "../../server/_core/env";
 import { initDb } from "../../server/db";
 
 type Env = {
-  DB: D1Database;
+  DB?: D1Database;
+  test_database?: D1Database;
   VITE_APP_ID?: string;
   JWT_SECRET?: string;
   OAUTH_SERVER_URL?: string;
@@ -54,7 +55,8 @@ const normalizeCookieOptions = (
 
 export const onRequest = async ({ request, env }: PagesContext) => {
   initEnv(toEnvRecord(env));
-  initDb(env.DB);
+  const dbBinding = env.DB ?? env.test_database;
+  initDb(dbBinding);
 
   return fetchRequestHandler({
     endpoint: "/api/trpc",

@@ -224,3 +224,12 @@ export async function removeFavorite(userId: number, caseStudyId: number) {
   
   return true;
 }
+
+export async function deleteCaseStudy(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(favorites).where(eq(favorites.caseStudyId, id));
+  await db.delete(caseStudies).where(eq(caseStudies.id, id));
+  return true;
+}
