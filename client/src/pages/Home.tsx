@@ -37,6 +37,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
   const { theme, toggleTheme, switchable } = useTheme();
   const toggleFavoriteMutation = trpc.caseStudies.toggleFavorite.useMutation({
     onSuccess: () => utils.caseStudies.list.invalidate(),
@@ -47,6 +48,15 @@ export default function Home() {
   const selectedCase = selectedCaseId
     ? cases.find((item) => item.id === selectedCaseId) ?? null
     : null;
+  const editingCase = editingCaseId
+    ? cases.find((item) => item.id === editingCaseId) ?? null
+    : null;
+  const canManageSelected =
+    Boolean(selectedCase) &&
+    Boolean(user) &&
+    (selectedCase?.userId === user?.id || user?.role === "admin");
+  const canEditSelected = canManageSelected && user?.loginMethod === "google";
+  const canDeleteSelected = canManageSelected;
 
   const filteredCases = useMemo(() => {
     return cases.filter((c) => {
@@ -92,6 +102,19 @@ export default function Home() {
     }
   };
 
+  const handleFavoriteToggle = async (caseId: number) => {
+    if (!isAuthenticated) {
+      window.location.href = getLoginUrl();
+      return;
+    }
+    try {
+      await toggleFavoriteMutation.mutateAsync({ caseStudyId: caseId });
+    } catch (error) {
+      console.error(error);
+      toast.error("お気に入りの更新に失敗しました");
+    }
+  };
+
   const handleDeleteCase = async (caseId: number) => {
     if (!window.confirm("Delete this case study?")) return;
     if (!isAuthenticated) {
@@ -119,6 +142,11 @@ export default function Home() {
       return;
     }
     setIsAddModalOpen(true);
+  };
+
+  const handleEditCase = (caseId: number) => {
+    setSelectedCaseId(null);
+    setEditingCaseId(caseId);
   };
 
   const handleLoginClick = () => {
@@ -237,55 +265,63 @@ export default function Home() {
           </div>
         ) : filteredCases.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredCases.map((caseStudy) => (
-              <Card
-                key={caseStudy.id}
-                className="cursor-pointer hover:shadow-lg transition-shadow group"
-                onClick={() => setSelectedCaseId(caseStudy.id)}
-              >
-                {caseStudy.thumbnailUrl && (
-                  <div className="relative w-full h-56 overflow-hidden rounded-t-lg">
-                    <img
-                      src={caseStudy.thumbnailUrl}
-                      alt={caseStudy.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  </div>
-                )}
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-xl">{caseStudy.title}</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={(e) => handleFavoriteClick(e, caseStudy.id)}
-                    >
-                      <Heart
-                        className={`w-4 h-4 ${
-                          caseStudy.isFavorite ? "fill-red-500 text-red-500" : ""
-                        }`}
+            {filteredCases.map((caseStudy) => {
+              const isEdited =
+                typeof caseStudy.updatedAt === "number" &&
+                caseStudy.updatedAt > caseStudy.createdAt;
+              return (
+                <Card
+                  key={caseStudy.id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow group"
+                  onClick={() => setSelectedCaseId(caseStudy.id)}
+                >
+                  {caseStudy.thumbnailUrl && (
+                    <div className="relative w-full h-56 overflow-hidden rounded-t-lg">
+                      <img
+                        src={caseStudy.thumbnailUrl}
+                        alt={caseStudy.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />
-                    </Button>
-                  </div>
-                  <CardDescription>{caseStudy.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {caseStudy.tools.map((tool: string) => (
-                      <Badge key={tool} variant="secondary">
-                        {tool}
-                      </Badge>
-                    ))}
-                  </div>
-                  {caseStudy.isRecommended === 1 && (
-                    <Badge variant="default" className="bg-gradient-to-r from-purple-500 to-blue-500">
-                      おすすめ
-                    </Badge>
+                    </div>
                   )}
-                </CardContent>
-              </Card>
-            ))}
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-xl">{caseStudy.title}</CardTitle>
+                        {isEdited && <Badge variant="outline">編集済み</Badge>}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => handleFavoriteClick(e, caseStudy.id)}
+                      >
+                        <Heart
+                          className={`w-4 h-4 ${
+                            caseStudy.isFavorite ? "fill-red-500 text-red-500" : ""
+                          }`}
+                        />
+                      </Button>
+                    </div>
+                    <CardDescription>{caseStudy.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {caseStudy.tools.map((tool: string) => (
+                        <Badge key={tool} variant="secondary">
+                          {tool}
+                        </Badge>
+                      ))}
+                    </div>
+                    {caseStudy.isRecommended === 1 && (
+                      <Badge variant="default" className="bg-gradient-to-r from-purple-500 to-blue-500">
+                        おすすめ
+                      </Badge>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-20">
@@ -299,11 +335,11 @@ export default function Home() {
         <CaseDetailModal
           caseStudy={selectedCase}
           onClose={() => setSelectedCaseId(null)}
-          onFavoriteToggle={(id: number) => {
-            toggleFavorite(id);
-            setCases(listCaseStudies());
-          }}
+          onFavoriteToggle={handleFavoriteToggle}
+          onEdit={handleEditCase}
           onDelete={handleDeleteCase}
+          canEdit={canEditSelected}
+          canDelete={canDeleteSelected}
         />
       )}
 
@@ -312,6 +348,18 @@ export default function Home() {
           onClose={() => setIsAddModalOpen(false)}
           onSuccess={() => {
             setIsAddModalOpen(false);
+            utils.caseStudies.list.invalidate();
+          }}
+        />
+      )}
+
+      {editingCase && (
+        <AddCaseModal
+          mode="edit"
+          caseStudy={editingCase}
+          onClose={() => setEditingCaseId(null)}
+          onSuccess={() => {
+            setEditingCaseId(null);
             utils.caseStudies.list.invalidate();
           }}
         />

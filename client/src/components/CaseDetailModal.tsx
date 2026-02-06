@@ -8,13 +8,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Heart, Trash2 } from "lucide-react";
+import { Heart, Pencil, Trash2 } from "lucide-react";
 
 interface CaseDetailModalProps {
   caseStudy: CaseStudy | null;
   onClose: () => void;
   onFavoriteToggle: (id: number) => void;
   onDelete: (id: number) => void;
+  onEdit: (id: number) => void;
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
 export function CaseDetailModal({
@@ -22,6 +25,9 @@ export function CaseDetailModal({
   onClose,
   onFavoriteToggle,
   onDelete,
+  onEdit,
+  canEdit,
+  canDelete,
 }: CaseDetailModalProps) {
 
   if (!caseStudy) {
@@ -44,13 +50,24 @@ export function CaseDetailModal({
     onDelete(caseStudy.id);
   };
 
+  const handleEditClick = () => {
+    onEdit(caseStudy.id);
+  };
+
+  const isEdited =
+    typeof caseStudy.updatedAt === "number" &&
+    caseStudy.updatedAt > caseStudy.createdAt;
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <DialogTitle className="text-2xl mb-2">{caseStudy.title}</DialogTitle>
+              <div className="flex items-center gap-2 mb-2">
+                <DialogTitle className="text-2xl">{caseStudy.title}</DialogTitle>
+                {isEdited && <Badge variant="outline">編集済み</Badge>}
+              </div>
               <DialogDescription className="text-base">
                 {caseStudy.description}
               </DialogDescription>
@@ -68,15 +85,27 @@ export function CaseDetailModal({
                   }`}
                 />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleDeleteClick}
-                className="text-destructive hover:text-destructive"
-                aria-label="Delete case study"
-              >
-                <Trash2 className="w-5 h-5" />
-              </Button>
+              {canEdit && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleEditClick}
+                  aria-label="Edit case study"
+                >
+                  <Pencil className="w-5 h-5" />
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleDeleteClick}
+                  className="text-destructive hover:text-destructive"
+                  aria-label="Delete case study"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </Button>
+              )}
             </div>
           </div>
         </DialogHeader>

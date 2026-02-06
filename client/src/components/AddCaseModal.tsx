@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
+import type { CaseStudy } from "@/lib/caseStudies";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +20,8 @@ import { useAuth } from "@/_core/hooks/useAuth";
 interface AddCaseModalProps {
   onClose: () => void;
   onSuccess: () => void;
+  caseStudy?: CaseStudy | null;
+  mode?: "create" | "edit";
 }
 
 type Category = "prompt" | "automation" | "tools" | "business";
@@ -30,27 +33,38 @@ const categories = [
   { id: "business" as Category, label: "業務活用" },
 ];
 
-export function AddCaseModal({ onClose, onSuccess }: AddCaseModalProps) {
+export function AddCaseModal({
+  onClose,
+  onSuccess,
+  caseStudy,
+  mode = "create",
+}: AddCaseModalProps) {
   const MAX_IMAGE_WIDTH = 1200;
   const MAX_IMAGE_HEIGHT = 900;
   const JPEG_QUALITY = 0.82;
+  const isEditMode = mode === "edit" && Boolean(caseStudy);
 
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: "automation" as Category,
-    tools: "",
-    challenge: "",
-    solution: "",
-    steps: "",
-    impact: "",
-  });
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [formData, setFormData] = useState(() => ({
+    title: caseStudy?.title ?? "",
+    description: caseStudy?.description ?? "",
+    category: (caseStudy?.category ?? "automation") as Category,
+    tools: caseStudy?.tools?.join(", ") ?? "",
+    challenge: caseStudy?.challenge ?? "",
+    solution: caseStudy?.solution ?? "",
+    steps: caseStudy?.steps?.join("\n") ?? "",
+    impact: caseStudy?.impact ?? "",
+  }));
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    caseStudy?.thumbnailUrl ?? null
+  );
 
   const [isSaving, setIsSaving] = useState(false);
   const { isAuthenticated, user } = useAuth();
   const utils = trpc.useUtils();
   const createMutation = trpc.caseStudies.create.useMutation({
+    onSuccess: () => utils.caseStudies.list.invalidate(),
+  });
+  const updateMutation = trpc.caseStudies.update.useMutation({
     onSuccess: () => utils.caseStudies.list.invalidate(),
   });
 
@@ -151,22 +165,43 @@ export function AddCaseModal({ onClose, onSuccess }: AddCaseModalProps) {
     const thumbnailUrl = imagePreview ?? undefined;
 
     try {
-      await createMutation.mutateAsync({
-        title: formData.title,
-        description: formData.description,
-        category: formData.category,
-        tools: toolsArray,
-        challenge: formData.challenge,
-        solution: formData.solution,
-        steps: stepsArray,
-        impact: formData.impact || undefined,
-        thumbnailUrl,
-      });
+      if (isEditMode && caseStudy) {
+        await updateMutation.mutateAsync({
+          id: caseStudy.id,
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          tools: toolsArray,
+          challenge: formData.challenge,
+          solution: formData.solution,
+          steps: stepsArray,
+          impact: formData.impact || undefined,
+          thumbnailUrl,
+          thumbnailKey: caseStudy.thumbnailKey ?? undefined,
+        });
 
-      toast.success("事例を追加しました");
-      onSuccess();
+        toast.success("事例を更新しました");
+        onSuccess();
+      } else {
+        await createMutation.mutateAsync({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          tools: toolsArray,
+          challenge: formData.challenge,
+          solution: formData.solution,
+          steps: stepsArray,
+          impact: formData.impact || undefined,
+          thumbnailUrl,
+        });
+
+        toast.success("事例を追加しました");
+        onSuccess();
+      }
     } catch (error) {
-      toast.error("事例の追加に失敗しました");
+      toast.error(
+        isEditMode ? "事例の更新に失敗しました" : "事例の追加に失敗しました"
+      );
     } finally {
       setIsSaving(false);
     }
@@ -180,10 +215,14 @@ export function AddCaseModal({ onClose, onSuccess }: AddCaseModalProps) {
             <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <DialogTitle>新しい事例を追加</DialogTitle>
+            <DialogTitle>
+              {isEditMode ? "事例を編集" : "新しい事例を追加"}
+            </DialogTitle>
           </div>
           <DialogDescription>
-            AI活用事例を共有して、チーム全体のナレッジを蓄積しましょう
+            {isEditMode
+              ? "事例の内容を更新します"
+              : "AI活用事例を共有して、チーム全体のナレッジを蓄積しましょう"}
           </DialogDescription>
         </DialogHeader>
 
@@ -384,7 +423,11 @@ export function AddCaseModal({ onClose, onSuccess }: AddCaseModalProps) {
               className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500"
               disabled={isSaving}
             >
-              {isSaving ? "追加中..." : "追加する"}
+              {isSaving
+                ? "保存中..."
+                : isEditMode
+                  ? "更新する"
+                  : "追加する"}
             </Button>
           </div>
         </form>

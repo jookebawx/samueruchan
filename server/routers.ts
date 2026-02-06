@@ -135,6 +135,62 @@ export const appRouter = router({
         return { success: true, id: Number(result.insertId) };
       }),
 
+    // 事例更新(認証必須)
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          title: z.string().min(1),
+          description: z.string().min(1),
+          category: z.enum(["prompt", "automation", "tools", "business"]),
+          tools: z.array(z.string()),
+          challenge: z.string().min(1),
+          solution: z.string().min(1),
+          steps: z.array(z.string()),
+          impact: z.string().optional(),
+          thumbnailUrl: z.string().optional(),
+          thumbnailKey: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.loginMethod !== "google") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Google login required to post.",
+          });
+        }
+
+        const caseStudy = await db.getCaseStudyById(input.id);
+        if (!caseStudy) return { success: false };
+
+        if (caseStudy.userId !== ctx.user.id && ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+        }
+
+        const tags = await generateTags({
+          title: input.title,
+          description: input.description,
+          tools: input.tools,
+          category: input.category,
+        });
+
+        await db.updateCaseStudy(input.id, {
+          title: input.title,
+          description: input.description,
+          category: input.category,
+          tools: JSON.stringify(input.tools),
+          challenge: input.challenge,
+          solution: input.solution,
+          steps: JSON.stringify(input.steps),
+          impact: input.impact || null,
+          thumbnailUrl: input.thumbnailUrl || null,
+          thumbnailKey: input.thumbnailKey || null,
+          tags: JSON.stringify(tags),
+        });
+
+        return { success: true };
+      }),
+
     // お気に入りトグル
     toggleFavorite: protectedProcedure
       .input(z.object({ caseStudyId: z.number() }))

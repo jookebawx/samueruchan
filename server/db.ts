@@ -149,6 +149,27 @@ export async function createCaseStudy(data: InsertCaseStudy) {
   return { insertId: inserted?.id || 0 };
 }
 
+export async function updateCaseStudy(
+  id: number,
+  data: Partial<Omit<InsertCaseStudy, "userId">>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const updateSet: Record<string, unknown> = {
+    updatedAt: Date.now(),
+  };
+
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      updateSet[key] = value;
+    }
+  }
+
+  await db.update(caseStudies).set(updateSet).where(eq(caseStudies.id, id));
+  return true;
+}
+
 export async function getUserCaseStudies(userId: number) {
   const db = await getDb();
   if (!db) return [];
