@@ -57,6 +57,14 @@ export function CaseDetailModal({
   const isEdited =
     typeof caseStudy.updatedAt === "number" &&
     caseStudy.updatedAt > caseStudy.createdAt;
+  const formatDateTime = (timestamp: number) =>
+    new Intl.DateTimeFormat("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(timestamp));
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -71,6 +79,11 @@ export function CaseDetailModal({
               <DialogDescription className="text-base">
                 {caseStudy.description}
               </DialogDescription>
+              {isEdited && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  編集: {formatDateTime(caseStudy.updatedAt)}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2 ml-4">
               <Button

@@ -163,7 +163,7 @@ export const appRouter = router({
         const caseStudy = await db.getCaseStudyById(input.id);
         if (!caseStudy) return { success: false };
 
-        if (caseStudy.userId !== ctx.user.id && ctx.user.role !== "admin") {
+        if (caseStudy.userId !== ctx.user.id) {
           throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
         }
 

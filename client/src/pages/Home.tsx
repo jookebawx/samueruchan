@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Heart, MessageCircle, Moon, Plus, Search, Sun } from "lucide-react";
+import { Heart, MessageCircle, Moon, Pencil, Plus, Search, Sun } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AddCaseModal } from "@/components/AddCaseModal";
 import { CaseDetailModal } from "@/components/CaseDetailModal";
@@ -54,9 +54,12 @@ export default function Home() {
   const canManageSelected =
     Boolean(selectedCase) &&
     Boolean(user) &&
-    (selectedCase?.userId === user?.id || user?.role === "admin");
+    selectedCase?.userId === user?.id;
   const canEditSelected = canManageSelected && user?.loginMethod === "google";
-  const canDeleteSelected = canManageSelected;
+  const canDeleteSelected =
+    Boolean(selectedCase) &&
+    Boolean(user) &&
+    (selectedCase?.userId === user?.id || user?.role === "admin");
 
   const filteredCases = useMemo(() => {
     return cases.filter((c) => {
@@ -148,6 +151,15 @@ export default function Home() {
     setSelectedCaseId(null);
     setEditingCaseId(caseId);
   };
+
+  const formatDateTime = (timestamp: number) =>
+    new Intl.DateTimeFormat("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(timestamp));
 
   const handleLoginClick = () => {
     window.location.href = getLoginUrl();
@@ -290,20 +302,41 @@ export default function Home() {
                         <CardTitle className="text-xl">{caseStudy.title}</CardTitle>
                         {isEdited && <Badge variant="outline">編集済み</Badge>}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => handleFavoriteClick(e, caseStudy.id)}
-                      >
-                        <Heart
-                          className={`w-4 h-4 ${
-                            caseStudy.isFavorite ? "fill-red-500 text-red-500" : ""
-                          }`}
-                        />
-                      </Button>
+                      <div className="flex items-center">
+                        {user?.loginMethod === "google" && caseStudy.userId === user?.id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditCase(caseStudy.id);
+                            }}
+                            aria-label="Edit case study"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => handleFavoriteClick(e, caseStudy.id)}
+                        >
+                          <Heart
+                            className={`w-4 h-4 ${
+                              caseStudy.isFavorite ? "fill-red-500 text-red-500" : ""
+                            }`}
+                          />
+                        </Button>
+                      </div>
                     </div>
                     <CardDescription>{caseStudy.description}</CardDescription>
+                    {isEdited && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        編集: {formatDateTime(caseStudy.updatedAt)}
+                      </p>
+                    )}
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2 mb-3">
