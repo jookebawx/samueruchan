@@ -24,7 +24,7 @@ const categories = [
   { id: "tools" as Category, label: "ツール活用" },
   { id: "business" as Category, label: "業務活用" },
 ];
-
+ 
 export default function Home() {
   const utils = trpc.useUtils();
   const { isAuthenticated, user } = useAuth();
