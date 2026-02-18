@@ -39,6 +39,32 @@ export const appRouter = router({
     }),
   }),
 
+  profile: router({
+    myPosts: protectedProcedure.query(async ({ ctx }) => {
+      const posts = await db.getUserCaseStudies(ctx.user.id);
+      return posts.map(post => ({
+        ...post,
+        tools: JSON.parse(post.tools),
+        steps: JSON.parse(post.steps),
+        tags: JSON.parse(post.tags),
+      }));
+    }),
+
+    updateName: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().trim().min(1).max(80),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await db.updateUserName(ctx.user.id, input.name);
+        return {
+          success: true,
+          name: input.name,
+        } as const;
+      }),
+  }),
+
   caseStudies: router({
     // 全事例一覧取得(公開)
     list: publicProcedure.query(async ({ ctx }) => {

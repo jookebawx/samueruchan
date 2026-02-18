@@ -132,6 +132,9 @@ export default function Admin() {
                       {post.description}
                     </p>
                     <p className="text-xs text-muted-foreground">
+                      Nickname: {post.authorName ?? "Unknown user"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
                       Post ID: {post.id} | Owner User ID: {post.userId}
                     </p>
                   </div>

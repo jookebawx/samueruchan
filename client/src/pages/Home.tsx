@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Sun } from "lucide-react";
+import { Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Sun, User } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AddCaseModal } from "@/components/AddCaseModal";
 import { CaseDetailModal } from "@/components/CaseDetailModal";
@@ -261,6 +261,14 @@ export default function Home() {
                 </Button>
               )}
               {isAuthenticated && (
+                <Button asChild variant="outline" className="rounded-full flex items-center gap-2">
+                  <a href="/profile">
+                    <User className="w-4 h-4" />
+                    <span className="text-sm">My Profile</span>
+                  </a>
+                </Button>
+              )}
+              {isAuthenticated && (
                 <Button
                   onClick={handleSwitchAccount}
                   variant="outline"
@@ -359,6 +367,9 @@ export default function Home() {
                       </div>
                     </div>
                     <CardDescription>{caseStudy.description}</CardDescription>
+                    <p className="text-xs text-muted-foreground">
+                      By: {caseStudy.authorName ?? "Unknown user"}
+                    </p>
                     {isEdited && (
                       <p className="text-xs text-muted-foreground mt-2">
                         編集: {formatDateTime(caseStudy.updatedAt)}

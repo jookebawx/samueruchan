@@ -79,6 +79,9 @@ export function CaseDetailModal({
               <DialogDescription className="text-base">
                 {caseStudy.description}
               </DialogDescription>
+              <p className="text-xs text-muted-foreground mt-2">
+                By: {caseStudy.authorName ?? "Unknown user"}
+              </p>
               {isEdited && (
                 <p className="text-xs text-muted-foreground mt-2">
                   編集: {formatDateTime(caseStudy.updatedAt)}

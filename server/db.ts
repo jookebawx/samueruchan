@@ -107,6 +107,24 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function updateUserName(userId: number, name: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update user: database not available");
+    return false;
+  }
+
+  await db
+    .update(users)
+    .set({
+      name,
+      updatedAt: Date.now(),
+    })
+    .where(eq(users.id, userId));
+
+  return true;
+}
+
 // ========================================
 // Case Studies Queries
 // ========================================
@@ -116,10 +134,17 @@ export async function getAllCaseStudies() {
   if (!db) return [];
   
   const result = await db
-    .select()
+    .select({
+      caseStudy: caseStudies,
+      authorName: users.name,
+    })
     .from(caseStudies)
+    .leftJoin(users, eq(caseStudies.userId, users.id))
     .orderBy(caseStudies.createdAt);
-  return result;
+  return result.map(row => ({
+    ...row.caseStudy,
+    authorName: row.authorName ?? null,
+  }));
 }
 
 export async function getCaseStudyById(id: number) {
