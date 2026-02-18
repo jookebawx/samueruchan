@@ -174,7 +174,7 @@ export default function Home() {
             {/* Logo */}
             <div className="flex items-center gap-2">
               <img
-                src="/logo.png"
+                src="/newlogo.png"
                 alt="CAI Library logo"
                 className="w-50 h-20 rounded-xl object-cover"
               />
