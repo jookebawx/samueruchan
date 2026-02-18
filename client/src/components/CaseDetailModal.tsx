@@ -1,6 +1,7 @@
 import { type CaseStudy } from "@/lib/caseStudies";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Heart, Pencil, Trash2 } from "lucide-react";
+
+function getInitials(name: string | null | undefined) {
+  const trimmed = name?.trim();
+  if (!trimmed) return "?";
+  return trimmed
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 interface CaseDetailModalProps {
   caseStudy: CaseStudy | null;
@@ -57,6 +68,7 @@ export function CaseDetailModal({
   const isEdited =
     typeof caseStudy.updatedAt === "number" &&
     caseStudy.updatedAt > caseStudy.createdAt;
+  const authorName = caseStudy.authorName ?? "Unknown user";
   const formatDateTime = (timestamp: number) =>
     new Intl.DateTimeFormat("ja-JP", {
       year: "numeric",
@@ -72,6 +84,16 @@ export function CaseDetailModal({
         <DialogHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
+              <div className="mb-3 flex items-center gap-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage
+                    src={caseStudy.authorAvatarUrl ?? undefined}
+                    alt={`${authorName} avatar`}
+                  />
+                  <AvatarFallback>{getInitials(authorName)}</AvatarFallback>
+                </Avatar>
+                <p className="text-sm text-muted-foreground">{authorName}</p>
+              </div>
               <div className="flex items-center gap-2 mb-2">
                 <DialogTitle className="text-2xl">{caseStudy.title}</DialogTitle>
                 {isEdited && <Badge variant="outline">編集済み</Badge>}
@@ -79,9 +101,6 @@ export function CaseDetailModal({
               <DialogDescription className="text-base">
                 {caseStudy.description}
               </DialogDescription>
-              <p className="text-xs text-muted-foreground mt-2">
-                By: {caseStudy.authorName ?? "Unknown user"}
-              </p>
               {isEdited && (
                 <p className="text-xs text-muted-foreground mt-2">
                   編集: {formatDateTime(caseStudy.updatedAt)}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Sun, User } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AddCaseModal } from "@/components/AddCaseModal";
@@ -24,7 +25,17 @@ const categories = [
   { id: "tools" as Category, label: "ツール活用" },
   { id: "business" as Category, label: "業務活用" },
 ];
- 
+
+function getInitials(name: string | null | undefined) {
+  const trimmed = name?.trim();
+  if (!trimmed) return "?";
+  return trimmed
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export default function Home() {
   const utils = trpc.useUtils();
   const { isAuthenticated, user, logout } = useAuth();
@@ -316,6 +327,7 @@ export default function Home() {
               const isEdited =
                 typeof caseStudy.updatedAt === "number" &&
                 caseStudy.updatedAt > caseStudy.createdAt;
+              const authorName = caseStudy.authorName ?? "Unknown user";
               return (
                 <Card
                   key={caseStudy.id}
@@ -332,6 +344,16 @@ export default function Home() {
                     </div>
                   )}
                   <CardHeader>
+                    <div className="mb-3 flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage
+                          src={caseStudy.authorAvatarUrl ?? undefined}
+                          alt={`${authorName} avatar`}
+                        />
+                        <AvatarFallback>{getInitials(authorName)}</AvatarFallback>
+                      </Avatar>
+                      <p className="text-sm text-muted-foreground truncate">{authorName}</p>
+                    </div>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-xl">{caseStudy.title}</CardTitle>
@@ -367,9 +389,6 @@ export default function Home() {
                       </div>
                     </div>
                     <CardDescription>{caseStudy.description}</CardDescription>
-                    <p className="text-xs text-muted-foreground">
-                      By: {caseStudy.authorName ?? "Unknown user"}
-                    </p>
                     {isEdited && (
                       <p className="text-xs text-muted-foreground mt-2">
                         編集: {formatDateTime(caseStudy.updatedAt)}

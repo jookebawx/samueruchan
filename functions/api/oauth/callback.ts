@@ -70,6 +70,7 @@ export const onRequest = async ({ request, env }: PagesContext) => {
       openId: userInfo.openId,
       name: userInfo.name || null,
       email: userInfo.email ?? null,
+      avatarUrl: userInfo.avatarUrl ?? null,
       loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
       lastSignedIn: Date.now(),
     });

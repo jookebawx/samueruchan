@@ -3,6 +3,7 @@ CREATE TABLE users (
   openId text not null unique,
   name text,
   email text,
+  avatarUrl text,
   loginMethod text,
   role text not null default 'user',
   createdAt integer not null default (unixepoch() * 1000),

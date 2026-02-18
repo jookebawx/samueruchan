@@ -41,6 +41,7 @@ export interface GetUserInfoResponse {
   projectId: string;
   name: string;
   email?: string | null;
+  avatarUrl?: string | null;
   platform?: string | null;
   loginMethod?: string | null;
 }
@@ -64,6 +65,7 @@ export interface GetUserInfoWithJwtResponse {
   projectId: string;
   name: string;
   email?: string | null;
+  avatarUrl?: string | null;
   platform?: string | null;
   loginMethod?: string | null;
 }

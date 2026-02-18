@@ -31,6 +31,7 @@ type GoogleUserInfoResponse = {
   sub: string;
   name?: string;
   email?: string;
+  picture?: string;
 };
 
 const postForm = async <T>(
@@ -171,6 +172,7 @@ class SDKServer {
       projectId: ENV.appId,
       name: data.name || data.email || "",
       email: data.email ?? null,
+      avatarUrl: data.picture ?? null,
       platform: "google",
       loginMethod: "google",
     };

@@ -10,11 +10,45 @@ import {
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _dbBinding: D1DatabaseLike | null = null;
+let _avatarColumnEnsured = false;
 
 type D1DatabaseLike = Parameters<typeof drizzle>[0];
 
+type D1StatementLike = {
+  run: () => Promise<unknown>;
+};
+
+type D1BindingLike = {
+  prepare?: (query: string) => D1StatementLike;
+};
+
+async function ensureAvatarColumn() {
+  if (_avatarColumnEnsured || !_dbBinding) return;
+  _avatarColumnEnsured = true;
+
+  const binding = _dbBinding as unknown as D1BindingLike;
+  if (typeof binding.prepare !== "function") return;
+
+  try {
+    await binding.prepare("ALTER TABLE users ADD COLUMN avatarUrl TEXT").run();
+    console.log("[Database] Added users.avatarUrl column.");
+  } catch (error) {
+    const message = String(error).toLowerCase();
+    const isAlreadyExists =
+      message.includes("duplicate column name") ||
+      message.includes("already exists");
+    if (!isAlreadyExists) {
+      console.warn("[Database] Failed to add users.avatarUrl column:", error);
+    }
+  }
+}
+
 // Initialize once per worker isolate.
 export function initDb(d1: D1DatabaseLike | null | undefined) {
+  if (d1) {
+    _dbBinding = d1;
+  }
   if (!_db && d1) {
     _db = drizzle(d1);
   }
@@ -27,7 +61,9 @@ export async function getDb() {
     console.warn(
       "[Database] Database not initialized. Call initDb with the D1 binding."
     );
+    return _db;
   }
+  await ensureAvatarColumn();
   return _db;
 }
 
@@ -48,7 +84,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     };
     const updateSet: Record<string, unknown> = {};
 
-    const textFields = ["name", "email", "loginMethod"] as const;
+    const textFields = ["name", "email", "avatarUrl", "loginMethod"] as const;
     type TextField = (typeof textFields)[number];
 
     const assignNullable = (field: TextField) => {
@@ -137,6 +173,7 @@ export async function getAllCaseStudies() {
     .select({
       caseStudy: caseStudies,
       authorName: users.name,
+      authorAvatarUrl: users.avatarUrl,
     })
     .from(caseStudies)
     .leftJoin(users, eq(caseStudies.userId, users.id))
@@ -144,6 +181,7 @@ export async function getAllCaseStudies() {
   return result.map(row => ({
     ...row.caseStudy,
     authorName: row.authorName ?? null,
+    authorAvatarUrl: row.authorAvatarUrl ?? null,
   }));
 }
 

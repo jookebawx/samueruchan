@@ -18,6 +18,7 @@ export const users = sqliteTable("users", {
   openId: text("openId").notNull().unique(),
   name: text("name"),
   email: text("email"),
+  avatarUrl: text("avatarUrl"),
   loginMethod: text("loginMethod"),
   role: text("role", { enum: ["user", "admin"] }).notNull().default("user"),
   createdAt: integer("createdAt").notNull().default(nowMs),

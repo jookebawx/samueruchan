@@ -11,6 +11,7 @@ function createAuthContext(userId: number = 1): TrpcContext {
     openId: `test-user-${userId}`,
     email: `test${userId}@example.com`,
     name: `Test User ${userId}`,
+    avatarUrl: null,
     loginMethod: "google",
     role: "user",
     createdAt: Date.now(),
