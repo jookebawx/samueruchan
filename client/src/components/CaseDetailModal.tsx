@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Heart, Pencil, Trash2 } from "lucide-react";
+import { Flag, Heart, Pencil, Trash2 } from "lucide-react";
 
 function getInitials(name: string | null | undefined) {
   const trimmed = name?.trim();
@@ -25,20 +25,24 @@ interface CaseDetailModalProps {
   caseStudy: CaseStudy | null;
   onClose: () => void;
   onFavoriteToggle: (id: number) => void;
+  onReport: (id: number, ownerUserId: number) => void;
   onDelete: (id: number) => void;
   onEdit: (id: number) => void;
   canEdit: boolean;
   canDelete: boolean;
+  canReport: boolean;
 }
 
 export function CaseDetailModal({
   caseStudy,
   onClose,
   onFavoriteToggle,
+  onReport,
   onDelete,
   onEdit,
   canEdit,
   canDelete,
+  canReport,
 }: CaseDetailModalProps) {
 
   if (!caseStudy) {
@@ -63,6 +67,10 @@ export function CaseDetailModal({
 
   const handleEditClick = () => {
     onEdit(caseStudy.id);
+  };
+
+  const handleReportClick = () => {
+    onReport(caseStudy.id, caseStudy.userId);
   };
 
   const isEdited =
@@ -120,6 +128,19 @@ export function CaseDetailModal({
                 <Heart
                   className={`w-5 h-5 ${
                     caseStudy.isFavorite ? "fill-red-500 text-red-500" : ""
+                  }`}
+                />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleReportClick}
+                disabled={!canReport}
+                aria-label="Report post"
+              >
+                <Flag
+                  className={`w-5 h-5 ${
+                    caseStudy.isReported ? "fill-amber-500 text-amber-500" : ""
                   }`}
                 />
               </Button>

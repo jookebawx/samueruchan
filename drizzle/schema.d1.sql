@@ -39,3 +39,13 @@ CREATE TABLE favorites (
 
 CREATE UNIQUE INDEX favorites_user_case_unique
   ON favorites(user_id, case_study_id);
+
+CREATE TABLE reports (
+  id integer primary key autoincrement,
+  user_id integer not null references users(id) on delete cascade,
+  case_study_id integer not null references case_studies(id) on delete cascade,
+  created_at integer not null default (unixepoch() * 1000)
+);
+
+CREATE UNIQUE INDEX reports_user_case_unique
+  ON reports(user_id, case_study_id);

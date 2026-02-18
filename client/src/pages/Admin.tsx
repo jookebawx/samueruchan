@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { LogOut, ShieldAlert, Trash2 } from "lucide-react";
+import { Flag, LogOut, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -30,6 +30,14 @@ export default function Admin() {
   });
 
   const posts = useMemo(() => listQuery.data ?? [], [listQuery.data]);
+  const reportedPosts = useMemo(
+    () => posts.filter(post => (post.reportCount ?? 0) > 0),
+    [posts]
+  );
+  const totalReports = useMemo(
+    () => reportedPosts.reduce((sum, post) => sum + (post.reportCount ?? 0), 0),
+    [reportedPosts]
+  );
 
   const handleDelete = async (id: number, title: string) => {
     const confirmed = window.confirm(
@@ -119,6 +127,21 @@ export default function Admin() {
         <p className="text-muted-foreground">No posts found.</p>
       ) : (
         <div className="space-y-3">
+          {reportedPosts.length > 0 && (
+            <Card className="border-amber-500/50 bg-amber-50/40 dark:bg-amber-950/10">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <Flag className="w-5 h-5 text-amber-600 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-medium">Report Notifications</p>
+                    <p className="text-sm text-muted-foreground">
+                      {reportedPosts.length} posts have been reported ({totalReports} reports total).
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {posts.map(post => (
             <Card key={post.id}>
               <CardContent className="pt-6">
@@ -127,6 +150,11 @@ export default function Admin() {
                     <div className="flex items-center gap-2">
                       <h2 className="font-medium">{post.title}</h2>
                       <Badge variant="outline">{post.category}</Badge>
+                      {(post.reportCount ?? 0) > 0 && (
+                        <Badge variant="destructive">
+                          Reported x{post.reportCount}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">
                       {post.description}

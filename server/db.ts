@@ -2,9 +2,11 @@ import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import {
   InsertCaseStudy,
+  InsertReport,
   InsertUser,
   caseStudies,
   favorites,
+  reports,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -12,6 +14,7 @@ import { ENV } from "./_core/env";
 let _db: ReturnType<typeof drizzle> | null = null;
 let _dbBinding: D1DatabaseLike | null = null;
 let _avatarColumnEnsured = false;
+let _reportsTableEnsured = false;
 
 type D1DatabaseLike = Parameters<typeof drizzle>[0];
 
@@ -44,6 +47,34 @@ async function ensureAvatarColumn() {
   }
 }
 
+async function ensureReportsTable() {
+  if (_reportsTableEnsured || !_dbBinding) return;
+  _reportsTableEnsured = true;
+
+  const binding = _dbBinding as unknown as D1BindingLike;
+  if (typeof binding.prepare !== "function") return;
+
+  try {
+    await binding
+      .prepare(
+        "CREATE TABLE IF NOT EXISTS reports (" +
+          "id integer primary key autoincrement, " +
+          "user_id integer not null references users(id) on delete cascade, " +
+          "case_study_id integer not null references case_studies(id) on delete cascade, " +
+          "created_at integer not null default (unixepoch() * 1000)" +
+          ")"
+      )
+      .run();
+    await binding
+      .prepare(
+        "CREATE UNIQUE INDEX IF NOT EXISTS reports_user_case_unique ON reports(user_id, case_study_id)"
+      )
+      .run();
+  } catch (error) {
+    console.warn("[Database] Failed to create reports table:", error);
+  }
+}
+
 // Initialize once per worker isolate.
 export function initDb(d1: D1DatabaseLike | null | undefined) {
   if (d1) {
@@ -64,6 +95,7 @@ export async function getDb() {
     return _db;
   }
   await ensureAvatarColumn();
+  await ensureReportsTable();
   return _db;
 }
 
@@ -190,19 +222,30 @@ export async function getAllCaseStudies() {
   const db = await getDb();
   if (!db) return [];
   
-  const result = await db
-    .select({
-      caseStudy: caseStudies,
-      authorName: users.name,
-      authorAvatarUrl: users.avatarUrl,
-    })
-    .from(caseStudies)
-    .leftJoin(users, eq(caseStudies.userId, users.id))
-    .orderBy(caseStudies.createdAt);
-  return result.map(row => ({
+  const [casesResult, reportsResult] = await Promise.all([
+    db
+      .select({
+        caseStudy: caseStudies,
+        authorName: users.name,
+        authorAvatarUrl: users.avatarUrl,
+      })
+      .from(caseStudies)
+      .leftJoin(users, eq(caseStudies.userId, users.id))
+      .orderBy(caseStudies.createdAt),
+    db.select({ caseStudyId: reports.caseStudyId }).from(reports),
+  ]);
+
+  const reportCountByCaseId = new Map<number, number>();
+  for (const row of reportsResult) {
+    const current = reportCountByCaseId.get(row.caseStudyId) ?? 0;
+    reportCountByCaseId.set(row.caseStudyId, current + 1);
+  }
+
+  return casesResult.map(row => ({
     ...row.caseStudy,
     authorName: row.authorName ?? null,
     authorAvatarUrl: row.authorAvatarUrl ?? null,
+    reportCount: reportCountByCaseId.get(row.caseStudy.id) ?? 0,
   }));
 }
 
@@ -289,6 +332,18 @@ export async function getUserFavorites(userId: number) {
   return result;
 }
 
+export async function getUserReportedCaseStudyIds(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const result = await db
+    .select({ caseStudyId: reports.caseStudyId })
+    .from(reports)
+    .where(eq(reports.userId, userId));
+
+  return result.map(item => item.caseStudyId);
+}
+
 export async function isFavorite(userId: number, caseStudyId: number) {
   const db = await getDb();
   if (!db) return false;
@@ -317,6 +372,18 @@ export async function addFavorite(userId: number, caseStudyId: number) {
   }
 }
 
+export async function createReport(data: InsertReport) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  try {
+    await db.insert(reports).values(data);
+    return { created: true };
+  } catch (_error) {
+    return { created: false };
+  }
+}
+
 export async function removeFavorite(userId: number, caseStudyId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -335,6 +402,7 @@ export async function deleteCaseStudy(id: number) {
   if (!db) throw new Error("Database not available");
 
   await db.delete(favorites).where(eq(favorites.caseStudyId, id));
+  await db.delete(reports).where(eq(reports.caseStudyId, id));
   await db.delete(caseStudies).where(eq(caseStudies.id, id));
   return true;
 }

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Sun, User } from "lucide-react";
+import { Flag, Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Sun, User } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AddCaseModal } from "@/components/AddCaseModal";
 import { CaseDetailModal } from "@/components/CaseDetailModal";
@@ -53,6 +53,9 @@ export default function Home() {
   const toggleFavoriteMutation = trpc.caseStudies.toggleFavorite.useMutation({
     onSuccess: () => utils.caseStudies.list.invalidate(),
   });
+  const reportMutation = trpc.caseStudies.report.useMutation({
+    onSuccess: () => utils.caseStudies.list.invalidate(),
+  });
   const deleteMutation = trpc.caseStudies.delete.useMutation({
     onSuccess: () => utils.caseStudies.list.invalidate(),
   });
@@ -71,6 +74,11 @@ export default function Home() {
     Boolean(selectedCase) &&
     Boolean(user) &&
     (selectedCase?.userId === user?.id || user?.role === "admin");
+  const canReportSelected = Boolean(
+    selectedCase &&
+      selectedCase.userId !== user?.id &&
+      !selectedCase.isReported
+  );
 
   const filteredCases = useMemo(() => {
     return cases.filter((c) => {
@@ -143,6 +151,29 @@ export default function Home() {
     } catch (error) {
       console.error(error);
       toast.error("削除に失敗しました");
+    }
+  };
+
+  const handleReportCase = async (caseId: number, ownerUserId: number) => {
+    if (!isAuthenticated) {
+      window.location.href = getLoginUrl();
+      return;
+    }
+    if (user?.id === ownerUserId) {
+      toast.error("You cannot report your own post.");
+      return;
+    }
+
+    try {
+      const result = await reportMutation.mutateAsync({ caseStudyId: caseId });
+      if (result.alreadyReported) {
+        toast.error("You already reported this post.");
+        return;
+      }
+      toast.success("Post reported. Admin has been notified.");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to report this post.");
     }
   };
 
@@ -392,6 +423,27 @@ export default function Home() {
                             }`}
                           />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={
+                            reportMutation.isPending ||
+                            caseStudy.userId === user?.id ||
+                            caseStudy.isReported
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReportCase(caseStudy.id, caseStudy.userId);
+                          }}
+                          aria-label="Report post"
+                        >
+                          <Flag
+                            className={`w-4 h-4 ${
+                              caseStudy.isReported ? "fill-amber-500 text-amber-500" : ""
+                            }`}
+                          />
+                        </Button>
                       </div>
                     </div>
                     <CardDescription>{caseStudy.description}</CardDescription>
@@ -432,10 +484,12 @@ export default function Home() {
           caseStudy={selectedCase}
           onClose={() => setSelectedCaseId(null)}
           onFavoriteToggle={handleFavoriteToggle}
+          onReport={handleReportCase}
           onEdit={handleEditCase}
           onDelete={handleDeleteCase}
           canEdit={canEditSelected}
           canDelete={canDeleteSelected}
+          canReport={canReportSelected}
         />
       )}
 

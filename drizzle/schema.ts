@@ -96,3 +96,29 @@ export const favorites = sqliteTable(
 
 export type Favorite = typeof favorites.$inferSelect;
 export type InsertFavorite = typeof favorites.$inferInsert;
+
+/**
+ * Reports table.
+ */
+export const reports = sqliteTable(
+  "reports",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    caseStudyId: integer("case_study_id")
+      .notNull()
+      .references(() => caseStudies.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at").notNull().default(nowMs),
+  },
+  table => ({
+    uniqueUserCase: uniqueIndex("reports_user_case_unique").on(
+      table.userId,
+      table.caseStudyId
+    ),
+  })
+);
+
+export type Report = typeof reports.$inferSelect;
+export type InsertReport = typeof reports.$inferInsert;

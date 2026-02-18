@@ -102,8 +102,12 @@ export const appRouter = router({
       
       // ログイン済みの場合はお気に入り情報も付与
       if (ctx.user) {
-        const favorites = await db.getUserFavorites(ctx.user.id);
+        const [favorites, reportedCaseStudyIds] = await Promise.all([
+          db.getUserFavorites(ctx.user.id),
+          db.getUserReportedCaseStudyIds(ctx.user.id),
+        ]);
         const favoriteIds = new Set(favorites.map(f => f.caseStudyId));
+        const reportedIds = new Set(reportedCaseStudyIds);
         
         return cases.map(c => ({
           ...c,
@@ -111,6 +115,7 @@ export const appRouter = router({
           steps: JSON.parse(c.steps),
           tags: JSON.parse(c.tags),
           isFavorite: favoriteIds.has(c.id),
+          isReported: reportedIds.has(c.id),
         }));
       }
       
@@ -120,6 +125,7 @@ export const appRouter = router({
         steps: JSON.parse(c.steps),
         tags: JSON.parse(c.tags),
         isFavorite: false,
+        isReported: false,
       }));
     }),
 
@@ -262,7 +268,34 @@ export const appRouter = router({
         }
       }),
 
-    // お気に入り一覧取得
+    // report post
+    report: protectedProcedure
+      .input(z.object({ caseStudyId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const caseStudy = await db.getCaseStudyById(input.caseStudyId);
+        if (!caseStudy) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Post not found." });
+        }
+
+        if (caseStudy.userId === ctx.user.id) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You cannot report your own post.",
+          });
+        }
+
+        const result = await db.createReport({
+          userId: ctx.user.id,
+          caseStudyId: input.caseStudyId,
+        });
+
+        return {
+          success: true,
+          alreadyReported: !result.created,
+        } as const;
+      }),
+
+    // favorites list
     getFavorites: protectedProcedure.query(async ({ ctx }) => {
       const favorites = await db.getUserFavorites(ctx.user.id);
       return favorites.map(f => ({
