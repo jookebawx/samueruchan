@@ -40,6 +40,36 @@ export const appRouter = router({
   }),
 
   profile: router({
+    byUserId: publicProcedure
+      .input(
+        z.object({
+          userId: z.number().int().positive(),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        const profile = await db.getUserPublicById(input.userId);
+        if (!profile) return null;
+
+        const posts = await db.getUserCaseStudies(input.userId);
+        const parsedPosts = posts.map(post => ({
+          ...post,
+          tools: JSON.parse(post.tools),
+          steps: JSON.parse(post.steps),
+          tags: JSON.parse(post.tags),
+        }));
+
+        return {
+          user: {
+            id: profile.id,
+            name: profile.name,
+            avatarUrl: profile.avatarUrl,
+            createdAt: profile.createdAt,
+          },
+          posts: parsedPosts,
+          isOwner: Boolean(ctx.user && ctx.user.id === profile.id),
+        };
+      }),
+
     myPosts: protectedProcedure.query(async ({ ctx }) => {
       const posts = await db.getUserCaseStudies(ctx.user.id);
       return posts.map(post => ({

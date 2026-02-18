@@ -344,7 +344,11 @@ export default function Home() {
                     </div>
                   )}
                   <CardHeader>
-                    <div className="mb-3 flex items-center gap-2">
+                    <a
+                      href={`/users/${caseStudy.userId}`}
+                      onClick={e => e.stopPropagation()}
+                      className="mb-3 inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    >
                       <Avatar className="h-8 w-8">
                         <AvatarImage
                           src={caseStudy.authorAvatarUrl ?? undefined}
@@ -352,8 +356,10 @@ export default function Home() {
                         />
                         <AvatarFallback>{getInitials(authorName)}</AvatarFallback>
                       </Avatar>
-                      <p className="text-sm text-muted-foreground truncate">{authorName}</p>
-                    </div>
+                      <p className="text-sm text-muted-foreground truncate hover:underline">
+                        {authorName}
+                      </p>
+                    </a>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-xl">{caseStudy.title}</CardTitle>

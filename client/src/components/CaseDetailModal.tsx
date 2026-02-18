@@ -84,7 +84,10 @@ export function CaseDetailModal({
         <DialogHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="mb-3 flex items-center gap-2">
+              <a
+                href={`/users/${caseStudy.userId}`}
+                className="mb-3 inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
+              >
                 <Avatar className="h-8 w-8">
                   <AvatarImage
                     src={caseStudy.authorAvatarUrl ?? undefined}
@@ -92,8 +95,8 @@ export function CaseDetailModal({
                   />
                   <AvatarFallback>{getInitials(authorName)}</AvatarFallback>
                 </Avatar>
-                <p className="text-sm text-muted-foreground">{authorName}</p>
-              </div>
+                <p className="text-sm text-muted-foreground hover:underline">{authorName}</p>
+              </a>
               <div className="flex items-center gap-2 mb-2">
                 <DialogTitle className="text-2xl">{caseStudy.title}</DialogTitle>
                 {isEdited && <Badge variant="outline">編集済み</Badge>}
