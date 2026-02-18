@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Heart, MessageCircle, Moon, Pencil, Plus, Search, Sun } from "lucide-react";
+import { Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Sun } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AddCaseModal } from "@/components/AddCaseModal";
 import { CaseDetailModal } from "@/components/CaseDetailModal";
@@ -27,7 +27,7 @@ const categories = [
  
 export default function Home() {
   const utils = trpc.useUtils();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const canPost = isAuthenticated && user?.loginMethod === "google";
   const listQuery = trpc.caseStudies.list.useQuery(undefined, {
     refetchOnWindowFocus: false,
@@ -165,6 +165,16 @@ export default function Home() {
     window.location.href = getLoginUrl();
   };
 
+  const handleSwitchAccount = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      window.location.href = getLoginUrl({ promptSelectAccount: true });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -243,6 +253,23 @@ export default function Home() {
                   <span className="text-sm">事例を追加</span>
                 </Button>
               ) : null}
+              {user?.role === "admin" && (
+                <Button asChild variant="outline" className="rounded-full">
+                  <a href="/admin">
+                    <span className="text-sm">Admin</span>
+                  </a>
+                </Button>
+              )}
+              {isAuthenticated && (
+                <Button
+                  onClick={handleSwitchAccount}
+                  variant="outline"
+                  className="flex items-center gap-2 rounded-full"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm">Switch account</span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -400,3 +427,4 @@ export default function Home() {
     </div>
   );
 }
+
