@@ -209,10 +209,25 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
+const toChatCompletionsUrl = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed.endsWith("/v1/chat/completions")
+    ? trimmed
+    : `${trimmed.replace(/\/$/, "")}/v1/chat/completions`;
+};
+
+const resolveApiUrl = () => {
+  const explicitApiUrl = toChatCompletionsUrl(ENV.llmApiUrl);
+  if (explicitApiUrl) return explicitApiUrl;
+
+  const forgeApiUrl = toChatCompletionsUrl(ENV.forgeApiUrl);
+  if (forgeApiUrl) return forgeApiUrl;
+
+  throw new Error(
+    "LLM API URL is not configured. Set LLM_API_URL or BUILT_IN_FORGE_API_URL."
+  );
+};
 
 const assertApiKey = () => {
   if (!ENV.forgeApiKey) {

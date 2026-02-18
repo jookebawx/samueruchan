@@ -44,4 +44,7 @@ export const ENV = {
   get forgeApiKey() {
     return readEnv("BUILT_IN_FORGE_API_KEY");
   },
+  get llmApiUrl() {
+    return readEnv("LLM_API_URL");
+  },
 };

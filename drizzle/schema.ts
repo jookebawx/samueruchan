@@ -14,7 +14,7 @@ export const users = sqliteTable("users", {
    * Use this for relations between tables.
    */
   id: integer("id").primaryKey({ autoIncrement: true }),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
+  /** OAuth identifier (openId) returned from the callback. Unique per user. */
   openId: text("openId").notNull().unique(),
   name: text("name"),
   email: text("email"),

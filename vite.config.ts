@@ -2,19 +2,26 @@ import { jsxLocPlugin } from "@builder.io/vite-plugin-jsx-loc";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
-import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
 
 // =============================================================================
-// Manus Debug Collector - Vite Plugin
+// Runtime Debug Collector - Vite Plugin
 // Writes browser logs directly to files, trimmed when exceeding size limit
 // =============================================================================
 
 const PROJECT_ROOT = import.meta.dirname;
-const LOG_DIR = path.join(PROJECT_ROOT, ".manus-logs");
+const LOG_DIR = path.join(PROJECT_ROOT, ".runtime-logs");
 const MAX_LOG_SIZE_BYTES = 1 * 1024 * 1024; // 1MB per log file
 const TRIM_TARGET_BYTES = Math.floor(MAX_LOG_SIZE_BYTES * 0.6); // Trim to 60% to avoid constant re-trimming
+const DEBUG_COLLECTOR_ASSET_PATH = "/__runtime__/debug-collector.js";
+const RUNTIME_DEBUG_LOGS_PATH = "/__runtime__/logs";
+const ALLOWED_HOSTS = (process.env.VITE_ALLOWED_HOSTS || "localhost,127.0.0.1")
+  .split(",")
+  .map(host => host.trim())
+  .filter(Boolean);
+type NextHandler = (err?: unknown) => void;
 
 type LogSource = "browserConsole" | "networkRequests" | "sessionReplay";
 
@@ -70,13 +77,13 @@ function writeToLogFile(source: LogSource, entries: unknown[]) {
 
 /**
  * Vite plugin to collect browser debug logs
- * - POST /__manus__/logs: Browser sends logs, written directly to files
+ * - POST /__runtime__/logs: Browser sends logs, written directly to files
  * - Files: browserConsole.log, networkRequests.log, sessionReplay.log
  * - Auto-trimmed when exceeding 1MB (keeps newest entries)
  */
-function vitePluginManusDebugCollector(): Plugin {
+function vitePluginRuntimeDebugCollector(): Plugin {
   return {
-    name: "manus-debug-collector",
+    name: "runtime-debug-collector",
 
     transformIndexHtml(html) {
       if (process.env.NODE_ENV === "production") {
@@ -88,7 +95,7 @@ function vitePluginManusDebugCollector(): Plugin {
           {
             tag: "script",
             attrs: {
-              src: "/__manus__/debug-collector.js",
+              src: DEBUG_COLLECTOR_ASSET_PATH,
               defer: true,
             },
             injectTo: "head",
@@ -98,8 +105,11 @@ function vitePluginManusDebugCollector(): Plugin {
     },
 
     configureServer(server: ViteDevServer) {
-      // POST /__manus__/logs: Browser sends logs (written directly to files)
-      server.middlewares.use("/__manus__/logs", (req, res, next) => {
+      const logsEndpointHandler = (
+        req: IncomingMessage & { body?: unknown },
+        res: ServerResponse,
+        next: NextHandler
+      ) => {
         if (req.method !== "POST") {
           return next();
         }
@@ -120,7 +130,7 @@ function vitePluginManusDebugCollector(): Plugin {
           res.end(JSON.stringify({ success: true }));
         };
 
-        const reqBody = (req as { body?: unknown }).body;
+        const reqBody = req.body;
         if (reqBody && typeof reqBody === "object") {
           try {
             handlePayload(reqBody);
@@ -145,12 +155,14 @@ function vitePluginManusDebugCollector(): Plugin {
             res.end(JSON.stringify({ success: false, error: String(e) }));
           }
         });
-      });
+      };
+
+      server.middlewares.use(RUNTIME_DEBUG_LOGS_PATH, logsEndpointHandler);
     },
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginRuntimeDebugCollector()];
 
 export default defineConfig({
   plugins,
@@ -170,15 +182,7 @@ export default defineConfig({
   },
   server: {
     host: true,
-    allowedHosts: [
-      ".manuspre.computer",
-      ".manus.computer",
-      ".manus-asia.computer",
-      ".manuscomputer.ai",
-      ".manusvm.computer",
-      "localhost",
-      "127.0.0.1",
-    ],
+    allowedHosts: ALLOWED_HOSTS,
     fs: {
       strict: true,
       deny: ["**/.*"],

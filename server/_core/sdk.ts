@@ -8,7 +8,7 @@ import { ENV } from "./env";
 import type {
   ExchangeTokenResponse,
   GetUserInfoResponse,
-} from "./types/manusTypes";
+} from "./types/webdevAuthTypes";
 
 type RequestLike = {
   headers: Record<string, string | string[] | undefined>;
