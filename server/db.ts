@@ -2,10 +2,14 @@ import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import {
   InsertCaseStudy,
+  InsertQuest,
+  InsertQuestAnswer,
   InsertReport,
   InsertUser,
   caseStudies,
   favorites,
+  questAnswers,
+  quests,
   reports,
   users,
 } from "../drizzle/schema";
@@ -15,6 +19,7 @@ let _db: ReturnType<typeof drizzle> | null = null;
 let _dbBinding: D1DatabaseLike | null = null;
 let _avatarColumnEnsured = false;
 let _reportsTableEnsured = false;
+let _questTablesEnsured = false;
 
 type D1DatabaseLike = Parameters<typeof drizzle>[0];
 
@@ -75,6 +80,53 @@ async function ensureReportsTable() {
   }
 }
 
+async function ensureQuestTables() {
+  if (_questTablesEnsured || !_dbBinding) return;
+  _questTablesEnsured = true;
+
+  const binding = _dbBinding as unknown as D1BindingLike;
+  if (typeof binding.prepare !== "function") return;
+
+  try {
+    await binding
+      .prepare(
+        "CREATE TABLE IF NOT EXISTS quests (" +
+          "id integer primary key autoincrement, " +
+          "user_id integer not null references users(id) on delete cascade, " +
+          "title text not null, " +
+          "content text not null, " +
+          "status text not null default 'open', " +
+          "created_at integer not null default (unixepoch() * 1000), " +
+          "updated_at integer not null default (unixepoch() * 1000), " +
+          "closed_at integer" +
+          ")"
+      )
+      .run();
+    await binding
+      .prepare("CREATE INDEX IF NOT EXISTS quests_status_idx ON quests(status)")
+      .run();
+    await binding
+      .prepare(
+        "CREATE TABLE IF NOT EXISTS quest_answers (" +
+          "id integer primary key autoincrement, " +
+          "quest_id integer not null references quests(id) on delete cascade, " +
+          "user_id integer not null references users(id) on delete cascade, " +
+          "content text not null, " +
+          "created_at integer not null default (unixepoch() * 1000), " +
+          "updated_at integer not null default (unixepoch() * 1000)" +
+          ")"
+      )
+      .run();
+    await binding
+      .prepare(
+        "CREATE INDEX IF NOT EXISTS quest_answers_quest_idx ON quest_answers(quest_id)"
+      )
+      .run();
+  } catch (error) {
+    console.warn("[Database] Failed to create quest tables:", error);
+  }
+}
+
 // Initialize once per worker isolate.
 export function initDb(d1: D1DatabaseLike | null | undefined) {
   if (d1) {
@@ -96,6 +148,7 @@ export async function getDb() {
   }
   await ensureAvatarColumn();
   await ensureReportsTable();
+  await ensureQuestTables();
   return _db;
 }
 
@@ -307,6 +360,143 @@ export async function getUserCaseStudies(userId: number) {
     .where(eq(caseStudies.userId, userId))
     .orderBy(caseStudies.createdAt);
   return result;
+}
+
+// ========================================
+// Quests Queries
+// ========================================
+
+export async function getAllQuests() {
+  const db = await getDb();
+  if (!db) return [];
+
+  const [questsResult, answersResult] = await Promise.all([
+    db
+      .select({
+        quest: quests,
+        authorName: users.name,
+        authorAvatarUrl: users.avatarUrl,
+      })
+      .from(quests)
+      .leftJoin(users, eq(quests.userId, users.id))
+      .orderBy(desc(quests.createdAt)),
+    db.select({ questId: questAnswers.questId }).from(questAnswers),
+  ]);
+
+  const answerCountByQuestId = new Map<number, number>();
+  for (const row of answersResult) {
+    const current = answerCountByQuestId.get(row.questId) ?? 0;
+    answerCountByQuestId.set(row.questId, current + 1);
+  }
+
+  return questsResult.map(row => ({
+    ...row.quest,
+    authorName: row.authorName ?? null,
+    authorAvatarUrl: row.authorAvatarUrl ?? null,
+    answerCount: answerCountByQuestId.get(row.quest.id) ?? 0,
+  }));
+}
+
+export async function getQuestById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select({
+      quest: quests,
+      authorName: users.name,
+      authorAvatarUrl: users.avatarUrl,
+    })
+    .from(quests)
+    .leftJoin(users, eq(quests.userId, users.id))
+    .where(eq(quests.id, id))
+    .limit(1);
+
+  if (result.length === 0) return undefined;
+
+  return {
+    ...result[0].quest,
+    authorName: result[0].authorName ?? null,
+    authorAvatarUrl: result[0].authorAvatarUrl ?? null,
+  };
+}
+
+export async function getQuestAnswers(questId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const result = await db
+    .select({
+      id: questAnswers.id,
+      questId: questAnswers.questId,
+      userId: questAnswers.userId,
+      content: questAnswers.content,
+      createdAt: questAnswers.createdAt,
+      updatedAt: questAnswers.updatedAt,
+      authorName: users.name,
+      authorAvatarUrl: users.avatarUrl,
+    })
+    .from(questAnswers)
+    .leftJoin(users, eq(questAnswers.userId, users.id))
+    .where(eq(questAnswers.questId, questId))
+    .orderBy(questAnswers.createdAt);
+
+  return result.map(row => ({
+    ...row,
+    authorName: row.authorName ?? null,
+    authorAvatarUrl: row.authorAvatarUrl ?? null,
+  }));
+}
+
+export async function createQuest(data: InsertQuest) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.insert(quests).values(data);
+  const [inserted] = await db
+    .select({ id: quests.id })
+    .from(quests)
+    .where(eq(quests.userId, data.userId))
+    .orderBy(desc(quests.createdAt))
+    .limit(1);
+
+  return { insertId: inserted?.id || 0 };
+}
+
+export async function createQuestAnswer(data: InsertQuestAnswer) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.insert(questAnswers).values(data);
+  const [inserted] = await db
+    .select({ id: questAnswers.id })
+    .from(questAnswers)
+    .where(
+      and(
+        eq(questAnswers.questId, data.questId),
+        eq(questAnswers.userId, data.userId)
+      )
+    )
+    .orderBy(desc(questAnswers.createdAt))
+    .limit(1);
+
+  return { insertId: inserted?.id || 0 };
+}
+
+export async function closeQuest(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db
+    .update(quests)
+    .set({
+      status: "closed",
+      closedAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+    .where(eq(quests.id, id));
+
+  return true;
 }
 
 // ========================================

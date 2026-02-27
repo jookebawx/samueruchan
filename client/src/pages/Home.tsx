@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Flag, Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Sun, User } from "lucide-react";
+import { Flag, Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Sun, Ticket, User } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AddCaseModal } from "@/components/AddCaseModal";
 import { CaseDetailModal } from "@/components/CaseDetailModal";
@@ -225,7 +225,7 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-border sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
         <div className="container py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             {/* Logo */}
             <div className="flex items-center gap-2">
               <img
@@ -235,22 +235,8 @@ export default function Home() {
               />
             </div>
 
-            {/* Search Bar */}
-            <div className="flex-1 max-w-xl mx-8">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="検索する"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-muted border-border rounded-full"
-                />
-              </div>
-            </div>
-
             {/* Action Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap justify-end">
               {switchable && (
                 <div className="flex items-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-2">
                   <Sun
@@ -278,6 +264,13 @@ export default function Home() {
                 <MessageCircle className="w-4 h-4" />
                 <span className="text-sm font-medium">AIに相談する</span>
               </button>
+
+              <Button asChild variant="outline" className="rounded-full">
+                <a href="/quest" className="flex items-center gap-2">
+                  <Ticket className="w-4 h-4" />
+                  <span className="text-sm">Quest</span>
+                </a>
+              </Button>
 
               {!isAuthenticated ? (
                 <Button
@@ -322,6 +315,20 @@ export default function Home() {
                   <span className="text-sm">Switch account</span>
                 </Button>
               )}
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="mt-4">
+            <div className="relative mx-auto w-full max-w-4xl">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="検索する"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-muted border-border rounded-full"
+              />
             </div>
           </div>
 

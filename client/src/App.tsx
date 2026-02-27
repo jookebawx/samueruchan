@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Admin from "./pages/Admin";
 import Home from "./pages/Home";
 import MyProfile from "./pages/MyProfile";
+import QuestPage from "./pages/Quest";
 import UserProfile from "./pages/UserProfile";
 
 function Router() {
@@ -14,6 +15,7 @@ function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      <Route path={"/quest"} component={QuestPage} />
       <Route path={"/admin"} component={Admin} />
       <Route path={"/profile"} component={MyProfile} />
       <Route path={"/users/:id"}>

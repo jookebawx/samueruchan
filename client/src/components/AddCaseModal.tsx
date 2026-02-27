@@ -154,13 +154,13 @@ export function AddCaseModal({
 
     const toolsArray = formData.tools
       .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
+      .map((t: string) => t.trim())
+      .filter((t: string) => t.length > 0);
 
     const stepsArray = formData.steps
       .split("\n")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+      .map((s: string) => s.trim())
+      .filter((s: string) => s.length > 0);
 
     const thumbnailUrl = imagePreview ?? undefined;
 

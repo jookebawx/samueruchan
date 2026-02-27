@@ -49,3 +49,29 @@ CREATE TABLE reports (
 
 CREATE UNIQUE INDEX reports_user_case_unique
   ON reports(user_id, case_study_id);
+
+CREATE TABLE quests (
+  id integer primary key autoincrement,
+  user_id integer not null references users(id) on delete cascade,
+  title text not null,
+  content text not null,
+  status text not null default 'open',
+  created_at integer not null default (unixepoch() * 1000),
+  updated_at integer not null default (unixepoch() * 1000),
+  closed_at integer
+);
+
+CREATE INDEX quests_status_idx
+  ON quests(status);
+
+CREATE TABLE quest_answers (
+  id integer primary key autoincrement,
+  quest_id integer not null references quests(id) on delete cascade,
+  user_id integer not null references users(id) on delete cascade,
+  content text not null,
+  created_at integer not null default (unixepoch() * 1000),
+  updated_at integer not null default (unixepoch() * 1000)
+);
+
+CREATE INDEX quest_answers_quest_idx
+  ON quest_answers(quest_id);

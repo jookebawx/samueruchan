@@ -32,7 +32,7 @@ export const appRouter = router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      ctx.res.clearCookie?.(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return {
         success: true,
       } as const;
@@ -347,6 +347,108 @@ export const appRouter = router({
           url: result.url,
           key: result.key,
         };
+      }),
+  }),
+
+  quests: router({
+    list: publicProcedure.query(async () => {
+      return db.getAllQuests();
+    }),
+
+    getById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const [quest, answers] = await Promise.all([
+          db.getQuestById(input.id),
+          db.getQuestAnswers(input.id),
+        ]);
+
+        if (!quest) return null;
+
+        return {
+          quest,
+          answers,
+        };
+      }),
+
+    create: protectedProcedure
+      .input(
+        z.object({
+          title: z.string().trim().min(1).max(160),
+          content: z.string().trim().min(1).max(5000),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.createQuest({
+          userId: ctx.user.id,
+          title: input.title,
+          content: input.content,
+          status: "open",
+          closedAt: null,
+        });
+
+        return {
+          success: true,
+          id: Number(result.insertId),
+        } as const;
+      }),
+
+    answer: protectedProcedure
+      .input(
+        z.object({
+          questId: z.number(),
+          content: z.string().trim().min(1).max(5000),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const quest = await db.getQuestById(input.questId);
+        if (!quest) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Quest not found." });
+        }
+        if (quest.status === "closed") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This quest is already closed.",
+          });
+        }
+
+        const result = await db.createQuestAnswer({
+          questId: input.questId,
+          userId: ctx.user.id,
+          content: input.content,
+        });
+
+        return {
+          success: true,
+          id: Number(result.insertId),
+        } as const;
+      }),
+
+    close: protectedProcedure
+      .input(z.object({ questId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const quest = await db.getQuestById(input.questId);
+        if (!quest) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Quest not found." });
+        }
+        if (quest.userId !== ctx.user.id) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only the quest owner can close this quest.",
+          });
+        }
+        if (quest.status === "closed") {
+          return {
+            success: true,
+            alreadyClosed: true,
+          } as const;
+        }
+
+        await db.closeQuest(input.questId);
+        return {
+          success: true,
+          alreadyClosed: false,
+        } as const;
       }),
   }),
 });
