@@ -384,6 +384,8 @@ export const appRouter = router({
           title: input.title,
           content: input.content,
           status: "open",
+          solvedAnswerId: null,
+          solverUserId: null,
           closedAt: null,
         });
 
@@ -405,7 +407,7 @@ export const appRouter = router({
         if (!quest) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Quest not found." });
         }
-        if (quest.status === "closed") {
+        if (quest.status !== "open") {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "This quest is already closed.",
@@ -425,7 +427,13 @@ export const appRouter = router({
       }),
 
     close: protectedProcedure
-      .input(z.object({ questId: z.number() }))
+      .input(
+        z.object({
+          questId: z.number(),
+          outcome: z.enum(["finished", "suspended", "unsolved"]),
+          solvedAnswerId: z.number().optional(),
+        })
+      )
       .mutation(async ({ input, ctx }) => {
         const quest = await db.getQuestById(input.questId);
         if (!quest) {
@@ -437,14 +445,39 @@ export const appRouter = router({
             message: "Only the quest owner can close this quest.",
           });
         }
-        if (quest.status === "closed") {
+        if (quest.status !== "open") {
           return {
             success: true,
             alreadyClosed: true,
           } as const;
         }
 
-        await db.closeQuest(input.questId);
+        let solvedAnswerId: number | null = null;
+        let solverUserId: number | null = null;
+
+        if (input.outcome === "finished") {
+          if (!input.solvedAnswerId) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Choose the solver comment when marking as finished.",
+            });
+          }
+          const solvedAnswer = await db.getQuestAnswerById(input.solvedAnswerId);
+          if (!solvedAnswer || solvedAnswer.questId !== quest.id) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Selected solver comment is not part of this quest.",
+            });
+          }
+          solvedAnswerId = solvedAnswer.id;
+          solverUserId = solvedAnswer.userId;
+        }
+
+        await db.closeQuest(input.questId, {
+          status: input.outcome,
+          solvedAnswerId,
+          solverUserId,
+        });
         return {
           success: true,
           alreadyClosed: false,

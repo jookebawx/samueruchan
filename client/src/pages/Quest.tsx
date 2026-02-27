@@ -5,14 +5,34 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { trpc } from "@/lib/trpc";
 import type { Quest } from "@/lib/quests";
-import { CheckCircle2, Circle, Home, MessageSquare, Send, Ticket } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { cn } from "@/lib/utils";
+import {
+  CheckCircle2,
+  Circle,
+  Home,
+  MessageSquare,
+  PauseCircle,
+  Send,
+  Ticket,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
-type QuestFilter = "all" | "open" | "closed";
+type QuestStatus = "open" | "finished" | "suspended" | "unsolved";
+type QuestCloseOutcome = Exclude<QuestStatus, "open">;
+type QuestFilter = "all" | QuestStatus;
+type ParticipantRole = "poster" | "solver" | "replier";
 
 function getInitials(name: string | null | undefined) {
   const trimmed = name?.trim();
@@ -33,6 +53,93 @@ const formatDateTime = (timestamp: number) =>
     minute: "2-digit",
   }).format(new Date(timestamp));
 
+function normalizeQuestStatus(status: string | null | undefined): QuestStatus {
+  if (status === "open") return "open";
+  if (status === "finished") return "finished";
+  if (status === "suspended") return "suspended";
+  if (status === "unsolved") return "unsolved";
+  if (status === "closed") return "unsolved";
+  return "unsolved";
+}
+
+function getQuestStatusMeta(status: QuestStatus) {
+  switch (status) {
+    case "open":
+      return {
+        label: "Open",
+        className: "bg-primary/10 text-primary border-primary/30",
+        icon: Circle,
+      };
+    case "finished":
+      return {
+        label: "Finished",
+        className: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:text-emerald-300",
+        icon: CheckCircle2,
+      };
+    case "suspended":
+      return {
+        label: "Suspended",
+        className: "bg-amber-500/10 text-amber-700 border-amber-500/30 dark:text-amber-300",
+        icon: PauseCircle,
+      };
+    case "unsolved":
+      return {
+        label: "Unsolved",
+        className: "bg-rose-500/10 text-rose-700 border-rose-500/30 dark:text-rose-300",
+        icon: XCircle,
+      };
+    default:
+      return {
+        label: "Unsolved",
+        className: "bg-rose-500/10 text-rose-700 border-rose-500/30 dark:text-rose-300",
+        icon: XCircle,
+      };
+  }
+}
+
+function getParticipantRole(
+  userId: number,
+  questOwnerId: number,
+  solverUserId: number | null | undefined
+): ParticipantRole {
+  if (solverUserId && userId === solverUserId) return "solver";
+  if (userId === questOwnerId) return "poster";
+  return "replier";
+}
+
+function getParticipantMeta(role: ParticipantRole) {
+  switch (role) {
+    case "poster":
+      return {
+        label: "Poster",
+        textClass: "text-sky-700 dark:text-sky-300",
+        badgeClass:
+          "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+      };
+    case "solver":
+      return {
+        label: "Solver",
+        textClass: "text-emerald-700 dark:text-emerald-300",
+        badgeClass:
+          "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+      };
+    case "replier":
+      return {
+        label: "Replier",
+        textClass: "text-amber-700 dark:text-amber-300",
+        badgeClass:
+          "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+      };
+    default:
+      return {
+        label: "Replier",
+        textClass: "text-amber-700 dark:text-amber-300",
+        badgeClass:
+          "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+      };
+  }
+}
+
 export default function QuestPage() {
   const utils = trpc.useUtils();
   const { isAuthenticated, user } = useAuth();
@@ -43,6 +150,9 @@ export default function QuestPage() {
   const [newQuestTitle, setNewQuestTitle] = useState("");
   const [newQuestContent, setNewQuestContent] = useState("");
   const [newAnswerContent, setNewAnswerContent] = useState("");
+  const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
+  const [closeOutcome, setCloseOutcome] = useState<QuestCloseOutcome>("finished");
+  const [selectedSolvedAnswerId, setSelectedSolvedAnswerId] = useState("");
 
   const listQuery = trpc.quests.list.useQuery(undefined, {
     refetchOnWindowFocus: false,
@@ -69,9 +179,31 @@ export default function QuestPage() {
 
   const selectedFromList = quests.find(quest => quest.id === selectedQuestId) ?? null;
   const selectedQuest = detailQuery.data?.quest ?? selectedFromList;
+  const selectedQuestStatus = normalizeQuestStatus(selectedQuest?.status);
   const answers = detailQuery.data?.answers ?? [];
   const isSelectedQuestOwner = Boolean(selectedQuest && user?.id === selectedQuest.userId);
-  const isSelectedQuestClosed = selectedQuest?.status === "closed";
+  const isSelectedQuestClosed = Boolean(selectedQuest && selectedQuestStatus !== "open");
+  const selectedSolvedAnswer = useMemo(() => {
+    if (!selectedQuest?.solvedAnswerId) return null;
+    return answers.find(answer => answer.id === selectedQuest.solvedAnswerId) ?? null;
+  }, [answers, selectedQuest?.solvedAnswerId]);
+
+  useEffect(() => {
+    if (!isCloseDialogOpen) return;
+    if (selectedQuest?.solvedAnswerId) {
+      setCloseOutcome("finished");
+      setSelectedSolvedAnswerId(String(selectedQuest.solvedAnswerId));
+      return;
+    }
+    setCloseOutcome(answers.length > 0 ? "finished" : "unsolved");
+    setSelectedSolvedAnswerId("");
+  }, [isCloseDialogOpen, selectedQuest?.solvedAnswerId, answers.length]);
+
+  useEffect(() => {
+    if (closeOutcome === "finished" && answers.length === 0) {
+      setCloseOutcome("unsolved");
+    }
+  }, [answers.length, closeOutcome]);
 
   const createQuestMutation = trpc.quests.create.useMutation({
     onSuccess: async (result) => {
@@ -104,13 +236,15 @@ export default function QuestPage() {
         toast.message("Quest was already closed.");
         return;
       }
+      setIsCloseDialogOpen(false);
       toast.success("Quest closed.");
     },
   });
 
   const filteredQuests = useMemo(() => {
     return quests.filter(quest => {
-      const matchesFilter = filter === "all" || quest.status === filter;
+      const status = normalizeQuestStatus(quest.status);
+      const matchesFilter = filter === "all" || status === filter;
       const q = searchQuery.trim().toLowerCase();
       const matchesSearch =
         q.length === 0 ||
@@ -122,12 +256,20 @@ export default function QuestPage() {
   }, [filter, quests, searchQuery]);
 
   const questCounts = useMemo(() => {
-    const open = quests.filter(quest => quest.status === "open").length;
-    const closed = quests.filter(quest => quest.status === "closed").length;
+    const counts: Record<QuestStatus, number> = {
+      open: 0,
+      finished: 0,
+      suspended: 0,
+      unsolved: 0,
+    };
+
+    for (const quest of quests) {
+      counts[normalizeQuestStatus(quest.status)] += 1;
+    }
+
     return {
       all: quests.length,
-      open,
-      closed,
+      ...counts,
     };
   }, [quests]);
 
@@ -183,14 +325,24 @@ export default function QuestPage() {
     }
   };
 
-  const handleCloseQuest = async () => {
+  const handleConfirmCloseQuest = async () => {
     if (!selectedQuestId || !isSelectedQuestOwner) return;
-    const confirmed = window.confirm("Close this quest as resolved?");
-    if (!confirmed) return;
+
+    const isFinished = closeOutcome === "finished";
+    if (isFinished && answers.length === 0) {
+      toast.error("Cannot mark as finished without any answers.");
+      return;
+    }
+    if (isFinished && !selectedSolvedAnswerId) {
+      toast.error("Choose the solver comment before closing as finished.");
+      return;
+    }
 
     try {
       await closeQuestMutation.mutateAsync({
         questId: selectedQuestId,
+        outcome: closeOutcome,
+        solvedAnswerId: isFinished ? Number(selectedSolvedAnswerId) : undefined,
       });
     } catch (error) {
       console.error(error);
@@ -207,7 +359,7 @@ export default function QuestPage() {
             Quest Board
           </h1>
           <p className="text-sm text-muted-foreground">
-            Ask prompt questions, share answers, and close quests when resolved.
+            Ask prompt questions, share answers, and close quests with a clear outcome.
           </p>
         </div>
         <Button asChild variant="outline">
@@ -266,11 +418,13 @@ export default function QuestPage() {
               onChange={event => setSearchQuery(event.target.value)}
               placeholder="Search quests"
             />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {([
                 { id: "all", label: `All (${questCounts.all})` },
                 { id: "open", label: `Open (${questCounts.open})` },
-                { id: "closed", label: `Closed (${questCounts.closed})` },
+                { id: "finished", label: `Finished (${questCounts.finished})` },
+                { id: "suspended", label: `Suspended (${questCounts.suspended})` },
+                { id: "unsolved", label: `Unsolved (${questCounts.unsolved})` },
               ] as Array<{ id: QuestFilter; label: string }>).map(item => (
                 <Button
                   key={item.id}
@@ -291,6 +445,9 @@ export default function QuestPage() {
             ) : (
               filteredQuests.map(quest => {
                 const isSelected = quest.id === selectedQuestId;
+                const status = normalizeQuestStatus(quest.status);
+                const statusMeta = getQuestStatusMeta(status);
+                const StatusIcon = statusMeta.icon;
                 return (
                   <button
                     key={quest.id}
@@ -304,8 +461,9 @@ export default function QuestPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-medium leading-tight">{quest.title}</p>
-                      <Badge variant={quest.status === "closed" ? "secondary" : "default"}>
-                        {quest.status === "closed" ? "Closed" : "Open"}
+                      <Badge variant="outline" className={cn("gap-1", statusMeta.className)}>
+                        <StatusIcon className="w-3.5 h-3.5" />
+                        {statusMeta.label}
                       </Badge>
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
@@ -336,35 +494,42 @@ export default function QuestPage() {
                   <div className="space-y-2">
                     <CardTitle className="text-2xl">{selectedQuest.title}</CardTitle>
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant={isSelectedQuestClosed ? "secondary" : "default"}
-                        className="flex items-center gap-1"
-                      >
-                        {isSelectedQuestClosed ? (
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        ) : (
-                          <Circle className="w-3.5 h-3.5" />
-                        )}
-                        {isSelectedQuestClosed ? "Closed" : "Open"}
-                      </Badge>
+                      {(() => {
+                        const statusMeta = getQuestStatusMeta(selectedQuestStatus);
+                        const StatusIcon = statusMeta.icon;
+                        return (
+                          <Badge
+                            variant="outline"
+                            className={cn("flex items-center gap-1", statusMeta.className)}
+                          >
+                            <StatusIcon className="w-3.5 h-3.5" />
+                            {statusMeta.label}
+                          </Badge>
+                        );
+                      })()}
                       <span className="text-xs text-muted-foreground">
                         {formatDateTime(selectedQuest.createdAt)}
                       </span>
                     </div>
+                    {selectedQuestStatus === "finished" && selectedSolvedAnswer && (
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                        Solved by {selectedSolvedAnswer.authorName ?? "Unknown user"}
+                      </p>
+                    )}
                   </div>
                   {isSelectedQuestOwner && !isSelectedQuestClosed && (
                     <Button
-                      onClick={handleCloseQuest}
+                      onClick={() => setIsCloseDialogOpen(true)}
                       disabled={closeQuestMutation.isPending}
                       variant="outline"
                     >
-                      {closeQuestMutation.isPending ? "Closing..." : "Close Quest"}
+                      Close Quest
                     </Button>
                   )}
                 </div>
                 <a
                   href={`/users/${selectedQuest.userId}`}
-                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:underline w-fit"
+                  className="inline-flex items-center gap-2 text-sm hover:underline w-fit"
                 >
                   <Avatar className="h-7 w-7">
                     <AvatarImage
@@ -373,7 +538,15 @@ export default function QuestPage() {
                     />
                     <AvatarFallback>{getInitials(selectedQuest.authorName)}</AvatarFallback>
                   </Avatar>
-                  <span>{selectedQuest.authorName ?? "Unknown user"}</span>
+                  <span className="font-medium text-sky-700 dark:text-sky-300">
+                    {selectedQuest.authorName ?? "Unknown user"}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                  >
+                    Poster
+                  </Badge>
                 </a>
               </CardHeader>
               <CardContent>
@@ -398,29 +571,45 @@ export default function QuestPage() {
                     No answers yet. Be the first to help.
                   </p>
                 ) : (
-                  answers.map(answer => (
-                    <div key={answer.id} className="rounded-lg border p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <a
-                          href={`/users/${answer.userId}`}
-                          className="inline-flex items-center gap-2 text-sm hover:underline"
-                        >
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage
-                              src={answer.authorAvatarUrl ?? undefined}
-                              alt={`${answer.authorName ?? "Unknown user"} avatar`}
-                            />
-                            <AvatarFallback>{getInitials(answer.authorName)}</AvatarFallback>
-                          </Avatar>
-                          <span>{answer.authorName ?? "Unknown user"}</span>
-                        </a>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDateTime(answer.createdAt)}
-                        </span>
+                  answers.map(answer => {
+                    const role = getParticipantRole(
+                      answer.userId,
+                      selectedQuest.userId,
+                      selectedQuest.solverUserId
+                    );
+                    const participant = getParticipantMeta(role);
+                    return (
+                      <div key={answer.id} className="rounded-lg border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <a
+                            href={`/users/${answer.userId}`}
+                            className="inline-flex items-center gap-2 text-sm hover:underline"
+                          >
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage
+                                src={answer.authorAvatarUrl ?? undefined}
+                                alt={`${answer.authorName ?? "Unknown user"} avatar`}
+                              />
+                              <AvatarFallback>{getInitials(answer.authorName)}</AvatarFallback>
+                            </Avatar>
+                            <span className={cn("font-medium", participant.textClass)}>
+                              {answer.authorName ?? "Unknown user"}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn("text-[10px]", participant.badgeClass)}
+                            >
+                              {participant.label}
+                            </Badge>
+                          </a>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDateTime(answer.createdAt)}
+                          </span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{answer.content}</p>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{answer.content}</p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </CardContent>
             </Card>
@@ -470,6 +659,111 @@ export default function QuestPage() {
           </div>
         )}
       </div>
+
+      <Dialog open={isCloseDialogOpen} onOpenChange={setIsCloseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Close Quest</DialogTitle>
+            <DialogDescription>
+              Choose the final result for this quest. If finished, select the solver
+              comment.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-3">
+              {([
+                {
+                  id: "finished",
+                  label: "Finished",
+                  description: "Problem solved with a valid answer.",
+                },
+                {
+                  id: "suspended",
+                  label: "Suspended",
+                  description: "Paused for now. Can revisit later.",
+                },
+                {
+                  id: "unsolved",
+                  label: "Unsolved",
+                  description: "Closed without a working solution.",
+                },
+              ] as Array<{
+                id: QuestCloseOutcome;
+                label: string;
+                description: string;
+              }>).map(option => {
+                const isDisabled = option.id === "finished" && answers.length === 0;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => setCloseOutcome(option.id)}
+                    className={cn(
+                      "rounded-lg border p-3 text-left transition-colors",
+                      closeOutcome === option.id
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:bg-muted/40",
+                      isDisabled && "cursor-not-allowed opacity-50"
+                    )}
+                  >
+                    <p className="text-sm font-medium">{option.label}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {option.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {closeOutcome === "finished" && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Solver Comment</p>
+                {answers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No answers yet. Add answers before marking as finished.
+                  </p>
+                ) : (
+                  <select
+                    value={selectedSolvedAnswerId}
+                    onChange={event => setSelectedSolvedAnswerId(event.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+                  >
+                    <option value="">Select the solver comment</option>
+                    {answers.map(answer => (
+                      <option key={answer.id} value={answer.id}>
+                        {(answer.authorName ?? "Unknown user") +
+                          ": " +
+                          answer.content.replace(/\s+/g, " ").slice(0, 72)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsCloseDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmCloseQuest}
+              disabled={
+                closeQuestMutation.isPending ||
+                (closeOutcome === "finished" &&
+                  (answers.length === 0 || !selectedSolvedAnswerId))
+              }
+            >
+              {closeQuestMutation.isPending ? "Closing..." : "Confirm Close"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

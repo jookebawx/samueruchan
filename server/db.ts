@@ -96,11 +96,43 @@ async function ensureQuestTables() {
           "title text not null, " +
           "content text not null, " +
           "status text not null default 'open', " +
+          "solved_answer_id integer, " +
+          "solver_user_id integer, " +
           "created_at integer not null default (unixepoch() * 1000), " +
           "updated_at integer not null default (unixepoch() * 1000), " +
           "closed_at integer" +
           ")"
       )
+      .run();
+    try {
+      await binding
+        .prepare("ALTER TABLE quests ADD COLUMN solved_answer_id integer")
+        .run();
+    } catch (error) {
+      const message = String(error).toLowerCase();
+      const isAlreadyExists =
+        message.includes("duplicate column name") ||
+        message.includes("already exists");
+      if (!isAlreadyExists) {
+        throw error;
+      }
+    }
+    try {
+      await binding
+        .prepare("ALTER TABLE quests ADD COLUMN solver_user_id integer")
+        .run();
+    } catch (error) {
+      const message = String(error).toLowerCase();
+      const isAlreadyExists =
+        message.includes("duplicate column name") ||
+        message.includes("already exists");
+      if (!isAlreadyExists) {
+        throw error;
+      }
+    }
+    // Backward compatibility for early quest status values.
+    await binding
+      .prepare("UPDATE quests SET status = 'unsolved' WHERE status = 'closed'")
       .run();
     await binding
       .prepare("CREATE INDEX IF NOT EXISTS quests_status_idx ON quests(status)")
@@ -483,14 +515,45 @@ export async function createQuestAnswer(data: InsertQuestAnswer) {
   return { insertId: inserted?.id || 0 };
 }
 
-export async function closeQuest(id: number) {
+export async function getQuestAnswerById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select({
+      id: questAnswers.id,
+      questId: questAnswers.questId,
+      userId: questAnswers.userId,
+      content: questAnswers.content,
+      createdAt: questAnswers.createdAt,
+      updatedAt: questAnswers.updatedAt,
+    })
+    .from(questAnswers)
+    .where(eq(questAnswers.id, id))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export type QuestClosedStatus = "finished" | "suspended" | "unsolved";
+
+export async function closeQuest(
+  id: number,
+  data: {
+    status: QuestClosedStatus;
+    solvedAnswerId: number | null;
+    solverUserId: number | null;
+  }
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
   await db
     .update(quests)
     .set({
-      status: "closed",
+      status: data.status,
+      solvedAnswerId: data.solvedAnswerId,
+      solverUserId: data.solverUserId,
       closedAt: Date.now(),
       updatedAt: Date.now(),
     })

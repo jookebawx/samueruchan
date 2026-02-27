@@ -56,6 +56,8 @@ CREATE TABLE quests (
   title text not null,
   content text not null,
   status text not null default 'open',
+  solved_answer_id integer,
+  solver_user_id integer,
   created_at integer not null default (unixepoch() * 1000),
   updated_at integer not null default (unixepoch() * 1000),
   closed_at integer

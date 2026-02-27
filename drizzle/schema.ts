@@ -141,9 +141,13 @@ export const quests = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     content: text("content").notNull(),
-    status: text("status", { enum: ["open", "closed"] })
+    status: text("status", {
+      enum: ["open", "finished", "suspended", "unsolved"],
+    })
       .notNull()
       .default("open"),
+    solvedAnswerId: integer("solved_answer_id"),
+    solverUserId: integer("solver_user_id"),
     createdAt: integer("created_at").notNull().default(nowMs),
     updatedAt: integer("updated_at").notNull().default(nowMs),
     closedAt: integer("closed_at"),
