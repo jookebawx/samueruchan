@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Flag, Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Sun, User } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AddCaseModal } from "@/components/AddCaseModal";
@@ -16,6 +17,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 
 type Category = "all" | "liked" | "prompt" | "automation" | "tools" | "business";
+const AI_DISCUSSION_EMBED_URL = "https://udify.app/chatbot/xeLQIFLhBycwJRFF";
 
 const categories = [
   { id: "all" as Category, label: "ALL" },
@@ -49,6 +51,7 @@ export default function Home() {
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
+  const [isAiDiscussionOpen, setIsAiDiscussionOpen] = useState(false);
   const { theme, toggleTheme, switchable } = useTheme();
   const toggleFavoriteMutation = trpc.caseStudies.toggleFavorite.useMutation({
     onSuccess: () => utils.caseStudies.list.invalidate(),
@@ -267,15 +270,14 @@ export default function Home() {
                   />
                 </div>
               )}
-              <a
-                href="https://notebooklm.google/"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => setIsAiDiscussionOpen(true)}
                 className="flex items-center gap-2 px-5 py-2.5 text-foreground hover:bg-muted rounded-full transition-colors"
               >
                 <MessageCircle className="w-4 h-4" />
                 <span className="text-sm font-medium">AIに相談する</span>
-              </a>
+              </button>
 
               {!isAuthenticated ? (
                 <Button
@@ -514,6 +516,22 @@ export default function Home() {
           }}
         />
       )}
+
+      <Dialog open={isAiDiscussionOpen} onOpenChange={setIsAiDiscussionOpen}>
+        <DialogContent className="h-[90vh] w-[95vw] max-w-6xl overflow-hidden p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>AI Discussion</DialogTitle>
+            <DialogDescription>Embedded chatbot for AI discussion.</DialogDescription>
+          </DialogHeader>
+          <iframe
+            src={AI_DISCUSSION_EMBED_URL}
+            title="AI Discussion Chatbot"
+            style={{ width: "100%", height: "100%", minHeight: "700px" }}
+            frameBorder="0"
+            allow="microphone"
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
