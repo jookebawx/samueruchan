@@ -373,11 +373,18 @@ export default function Home() {
           display: flex !important;
           visibility: visible !important;
           opacity: 1 !important;
+          position: fixed !important;
+          right: 1rem !important;
+          bottom: 1rem !important;
           z-index: 70 !important;
         }
         #dify-chatbot-bubble-window {
           width: 24rem !important;
           height: 40rem !important;
+          max-height: calc(100vh - 2rem) !important;
+          position: fixed !important;
+          right: 1rem !important;
+          bottom: 1rem !important;
           z-index: 70 !important;
         }
       `;
