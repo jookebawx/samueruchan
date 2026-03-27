@@ -21,11 +21,11 @@ const AI_DISCUSSION_EMBED_URL = "https://udify.app/chatbot/xeLQIFLhBycwJRFF";
 
 const categories = [
   { id: "all" as Category, label: "ALL" },
-  { id: "liked" as Category, label: "❤️お気に入り" },
-  { id: "prompt" as Category, label: "プロンプト集" },
-  { id: "automation" as Category, label: "自動化" },
-  { id: "tools" as Category, label: "ツール活用" },
-  { id: "business" as Category, label: "業務活用" },
+  { id: "liked" as Category, label: "❤️ Favorites" },
+  { id: "prompt" as Category, label: "Prompt Library" },
+  { id: "automation" as Category, label: "Automation" },
+  { id: "tools" as Category, label: "Tools" },
+  { id: "business" as Category, label: "Business" },
 ];
 
 function getInitials(name: string | null | undefined) {
@@ -123,7 +123,7 @@ export default function Home() {
       await toggleFavoriteMutation.mutateAsync({ caseStudyId: caseId });
     } catch (error) {
       console.error(error);
-      toast.error("お気に入りの更新に失敗しました");
+      toast.error("Failed to update favorites.");
     }
   };
 
@@ -136,7 +136,7 @@ export default function Home() {
       await toggleFavoriteMutation.mutateAsync({ caseStudyId: caseId });
     } catch (error) {
       console.error(error);
-      toast.error("お気に入りの更新に失敗しました");
+      toast.error("Failed to update favorites.");
     }
   };
 
@@ -153,7 +153,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error(error);
-      toast.error("削除に失敗しました");
+      toast.error("Failed to delete case study.");
     }
   };
 
@@ -198,7 +198,7 @@ export default function Home() {
   };
 
   const formatDateTime = (timestamp: number) =>
-    new Intl.DateTimeFormat("ja-JP", {
+    new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -262,7 +262,7 @@ export default function Home() {
                 className="flex items-center gap-2 px-5 py-2.5 text-foreground hover:bg-muted rounded-full transition-colors"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">AIに相談する</span>
+                <span className="text-sm font-medium">Ask AI</span>
               </button>
 
               <Button asChild variant="outline" className="rounded-full">
@@ -278,7 +278,7 @@ export default function Home() {
                   variant="outline"
                   className="flex items-center gap-2 rounded-full"
                 >
-                  <span className="text-sm">Googleでログイン</span>
+                  <span className="text-sm">Log in with Google</span>
                 </Button>
               ) : canPost ? (
                 <Button
@@ -287,7 +287,7 @@ export default function Home() {
                   className="flex items-center gap-2 rounded-full"
                 >
                   <Plus className="w-4 h-4" />
-                  <span className="text-sm">事例を追加</span>
+                  <span className="text-sm">Add Case Study</span>
                 </Button>
               ) : null}
               {user?.role === "admin" && (
@@ -324,7 +324,7 @@ export default function Home() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="検索する"
+                placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 bg-muted border-border rounded-full"
@@ -359,7 +359,7 @@ export default function Home() {
       <main className="container py-12">
         {listQuery.isLoading ? (
           <div className="text-center py-20">
-            <p className="text-muted-foreground text-lg">読み込み中...</p>
+            <p className="text-muted-foreground text-lg">Loading...</p>
           </div>
         ) : filteredCases.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -400,11 +400,11 @@ export default function Home() {
                         {authorName}
                       </p>
                     </a>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-xl">{caseStudy.title}</CardTitle>
-                        {isEdited && <Badge variant="outline">編集済み</Badge>}
-                      </div>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-xl">{caseStudy.title}</CardTitle>
+                        {isEdited && <Badge variant="outline">Edited</Badge>}
+                        </div>
                       <div className="flex items-center">
                         {user?.loginMethod === "google" && caseStudy.userId === user?.id && (
                           <Button
@@ -458,7 +458,7 @@ export default function Home() {
                     <CardDescription>{caseStudy.description}</CardDescription>
                     {isEdited && (
                       <p className="text-xs text-muted-foreground mt-2">
-                        編集: {formatDateTime(caseStudy.updatedAt)}
+                        Edited: {formatDateTime(caseStudy.updatedAt)}
                       </p>
                     )}
                   </CardHeader>
@@ -472,7 +472,7 @@ export default function Home() {
                     </div>
                     {caseStudy.isRecommended === 1 && (
                       <Badge variant="default" className="bg-gradient-to-r from-purple-500 to-blue-500">
-                        おすすめ
+                        Recommended
                       </Badge>
                     )}
                   </CardContent>
@@ -482,7 +482,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="text-center py-20">
-            <p className="text-muted-foreground text-lg">該当する事例が見つかりませんでした</p>
+            <p className="text-muted-foreground text-lg">No matching case studies found.</p>
           </div>
         )}
       </main>
