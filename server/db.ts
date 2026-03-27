@@ -66,10 +66,22 @@ async function ensureReportsTable() {
           "id integer primary key autoincrement, " +
           "user_id integer not null references users(id) on delete cascade, " +
           "case_study_id integer not null references case_studies(id) on delete cascade, " +
+          "message text, " +
           "created_at integer not null default (unixepoch() * 1000)" +
           ")"
       )
       .run();
+    try {
+      await binding.prepare("ALTER TABLE reports ADD COLUMN message text").run();
+    } catch (error) {
+      const message = String(error).toLowerCase();
+      const isAlreadyExists =
+        message.includes("duplicate column name") ||
+        message.includes("already exists");
+      if (!isAlreadyExists) {
+        throw error;
+      }
+    }
     await binding
       .prepare(
         "CREATE UNIQUE INDEX IF NOT EXISTS reports_user_case_unique ON reports(user_id, case_study_id)"
@@ -307,7 +319,7 @@ export async function getAllCaseStudies() {
   const db = await getDb();
   if (!db) return [];
   
-  const [casesResult, reportsResult] = await Promise.all([
+  const [casesResult, reportsResult, favoritesResult] = await Promise.all([
     db
       .select({
         caseStudy: caseStudies,
@@ -318,6 +330,7 @@ export async function getAllCaseStudies() {
       .leftJoin(users, eq(caseStudies.userId, users.id))
       .orderBy(caseStudies.createdAt),
     db.select({ caseStudyId: reports.caseStudyId }).from(reports),
+    db.select({ caseStudyId: favorites.caseStudyId }).from(favorites),
   ]);
 
   const reportCountByCaseId = new Map<number, number>();
@@ -326,11 +339,18 @@ export async function getAllCaseStudies() {
     reportCountByCaseId.set(row.caseStudyId, current + 1);
   }
 
+  const favoriteCountByCaseId = new Map<number, number>();
+  for (const row of favoritesResult) {
+    const current = favoriteCountByCaseId.get(row.caseStudyId) ?? 0;
+    favoriteCountByCaseId.set(row.caseStudyId, current + 1);
+  }
+
   return casesResult.map(row => ({
     ...row.caseStudy,
     authorName: row.authorName ?? null,
     authorAvatarUrl: row.authorAvatarUrl ?? null,
     reportCount: reportCountByCaseId.get(row.caseStudy.id) ?? 0,
+    favoriteCount: favoriteCountByCaseId.get(row.caseStudy.id) ?? 0,
   }));
 }
 
@@ -562,6 +582,14 @@ export async function closeQuest(
   return true;
 }
 
+export async function deleteQuest(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(quests).where(eq(quests.id, id));
+  return true;
+}
+
 // ========================================
 // Favorites Queries
 // ========================================
@@ -595,6 +623,24 @@ export async function getUserReportedCaseStudyIds(userId: number) {
     .where(eq(reports.userId, userId));
 
   return result.map(item => item.caseStudyId);
+}
+
+export async function getReportEntriesForAdmin() {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select({
+      id: reports.id,
+      caseStudyId: reports.caseStudyId,
+      reporterUserId: reports.userId,
+      reporterName: users.name,
+      message: reports.message,
+      createdAt: reports.createdAt,
+    })
+    .from(reports)
+    .leftJoin(users, eq(reports.userId, users.id))
+    .orderBy(desc(reports.createdAt));
 }
 
 export async function isFavorite(userId: number, caseStudyId: number) {
@@ -635,6 +681,14 @@ export async function createReport(data: InsertReport) {
   } catch (_error) {
     return { created: false };
   }
+}
+
+export async function clearReportsByCaseStudy(caseStudyId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(reports).where(eq(reports.caseStudyId, caseStudyId));
+  return true;
 }
 
 export async function removeFavorite(userId: number, caseStudyId: number) {

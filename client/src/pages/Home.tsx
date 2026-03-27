@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,11 +17,12 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 
-type Category = "all" | "liked" | "prompt" | "automation" | "tools" | "business";
+type Category = "all" | "trending" | "liked" | "prompt" | "automation" | "tools" | "business";
 const AI_DISCUSSION_EMBED_URL = "https://udify.app/chatbot/xeLQIFLhBycwJRFF";
 
 const categories = [
   { id: "all" as Category, label: "ALL" },
+  { id: "trending" as Category, label: "Trending" },
   { id: "liked" as Category, label: "❤️ Favorites" },
   { id: "prompt" as Category, label: "Prompt Library" },
   { id: "automation" as Category, label: "Automation" },
@@ -52,6 +54,9 @@ export default function Home() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
   const [isAiDiscussionOpen, setIsAiDiscussionOpen] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [reportMessage, setReportMessage] = useState("");
+  const [reportTarget, setReportTarget] = useState<{ caseId: number } | null>(null);
   const hasHandledSharedPostRef = useRef(false);
   const { theme, toggleTheme, switchable } = useTheme();
   const toggleFavoriteMutation = trpc.caseStudies.toggleFavorite.useMutation({
@@ -85,20 +90,32 @@ export default function Home() {
   );
 
   const filteredCases = useMemo(() => {
-    return cases.filter((c) => {
+    const matched = cases.filter((c) => {
       const matchesSearch =
         c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory =
         activeCategory === "all" ||
+        activeCategory === "trending" ||
         (activeCategory === "liked" ? c.isFavorite : c.category === activeCategory);
       return matchesSearch && matchesCategory;
+    });
+
+    if (activeCategory !== "trending") {
+      return matched;
+    }
+
+    return [...matched].sort((a, b) => {
+      const likeDelta = (b.favoriteCount ?? 0) - (a.favoriteCount ?? 0);
+      if (likeDelta !== 0) return likeDelta;
+      return b.createdAt - a.createdAt;
     });
   }, [cases, searchQuery, activeCategory]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<Category, number> = {
       all: cases.length,
+      trending: cases.length,
       liked: 0,
       prompt: 0,
       automation: 0,
@@ -158,7 +175,7 @@ export default function Home() {
     }
   };
 
-  const handleReportCase = async (caseId: number, ownerUserId: number) => {
+  const handleReportCase = (caseId: number, ownerUserId: number) => {
     if (!isAuthenticated) {
       window.location.href = getLoginUrl();
       return;
@@ -168,13 +185,36 @@ export default function Home() {
       return;
     }
 
+    setReportTarget({ caseId });
+    setReportMessage("");
+    setIsReportDialogOpen(true);
+  };
+
+  const handleSubmitReport = async () => {
+    if (!reportTarget) return;
+
+    const message = reportMessage.trim();
+    if (message.length < 5) {
+      toast.error("Please provide at least 5 characters for the report reason.");
+      return;
+    }
+
     try {
-      const result = await reportMutation.mutateAsync({ caseStudyId: caseId });
+      const result = await reportMutation.mutateAsync({
+        caseStudyId: reportTarget.caseId,
+        message,
+      });
       if (result.alreadyReported) {
         toast.error("You already reported this post.");
+        setIsReportDialogOpen(false);
+        setReportTarget(null);
+        setReportMessage("");
         return;
       }
       toast.success("Post reported. Admin has been notified.");
+      setIsReportDialogOpen(false);
+      setReportTarget(null);
+      setReportMessage("");
     } catch (error) {
       console.error(error);
       toast.error("Failed to report this post.");
@@ -259,6 +299,14 @@ export default function Home() {
       console.error(error);
     } finally {
       window.location.href = getLoginUrl({ promptSelectAccount: true });
+    }
+  };
+
+  const handleReportDialogOpenChange = (open: boolean) => {
+    setIsReportDialogOpen(open);
+    if (!open && !reportMutation.isPending) {
+      setReportTarget(null);
+      setReportMessage("");
     }
   };
 
@@ -599,6 +647,46 @@ export default function Home() {
         />
       )}
 
+      <Dialog open={isReportDialogOpen} onOpenChange={handleReportDialogOpenChange}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Report Post</DialogTitle>
+            <DialogDescription>
+              Tell admins why this post should be reviewed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              value={reportMessage}
+              onChange={(event) => setReportMessage(event.target.value)}
+              placeholder="Explain the issue (spam, misleading content, abuse, etc.)"
+              className="min-h-28"
+              maxLength={500}
+            />
+            <p className="text-xs text-muted-foreground text-right">
+              {reportMessage.length}/500
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleReportDialogOpenChange(false)}
+              disabled={reportMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSubmitReport}
+              disabled={reportMutation.isPending || reportMessage.trim().length < 5}
+            >
+              {reportMutation.isPending ? "Reporting..." : "Submit Report"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isAiDiscussionOpen} onOpenChange={setIsAiDiscussionOpen}>
         <DialogContent className="h-[90vh] w-[95vw] max-w-6xl overflow-hidden p-0">
           <DialogHeader className="sr-only">
@@ -617,4 +705,5 @@ export default function Home() {
     </div>
   );
 }
+
 

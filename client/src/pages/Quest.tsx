@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MarkdownComposer } from "@/components/MarkdownComposer";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Streamdown } from "streamdown";
 
 type QuestStatus = "open" | "finished" | "suspended" | "unsolved";
 type QuestCloseOutcome = Exclude<QuestStatus, "open">;
@@ -138,6 +140,20 @@ function getParticipantMeta(role: ParticipantRole) {
           "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
       };
   }
+}
+
+function stripMarkdown(content: string) {
+  return content
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/<\/?(?:u|ins)>/g, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/^\s*>\s?/gm, "")
+    .replace(/[*_~#]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export default function QuestPage() {
@@ -381,11 +397,10 @@ export default function QuestPage() {
             placeholder="Short title for your question"
             maxLength={160}
           />
-          <Textarea
+          <MarkdownComposer
             value={newQuestContent}
-            onChange={event => setNewQuestContent(event.target.value)}
+            onChange={setNewQuestContent}
             placeholder="Describe your prompt problem and what you already tried"
-            className="min-h-28"
             maxLength={5000}
           />
           <div className="flex items-center justify-end gap-2">
@@ -467,7 +482,7 @@ export default function QuestPage() {
                       </Badge>
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
-                      {quest.content}
+                      {stripMarkdown(quest.content)}
                     </p>
                     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                       <span>{quest.authorName ?? "Unknown user"}</span>
@@ -550,9 +565,9 @@ export default function QuestPage() {
                 </a>
               </CardHeader>
               <CardContent>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {selectedQuest.content}
-                </p>
+                <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+                  <Streamdown>{selectedQuest.content}</Streamdown>
+                </div>
               </CardContent>
             </Card>
 
@@ -606,7 +621,9 @@ export default function QuestPage() {
                             {formatDateTime(answer.createdAt)}
                           </span>
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">{answer.content}</p>
+                        <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+                          <Streamdown>{answer.content}</Streamdown>
+                        </div>
                       </div>
                     );
                   })

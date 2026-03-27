@@ -1,7 +1,7 @@
 import { COOKIE_NAME, NOT_ADMIN_ERR_MSG } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
@@ -270,7 +270,12 @@ export const appRouter = router({
 
     // report post
     report: protectedProcedure
-      .input(z.object({ caseStudyId: z.number() }))
+      .input(
+        z.object({
+          caseStudyId: z.number(),
+          message: z.string().trim().min(5).max(500),
+        })
+      )
       .mutation(async ({ input, ctx }) => {
         const caseStudy = await db.getCaseStudyById(input.caseStudyId);
         if (!caseStudy) {
@@ -287,12 +292,27 @@ export const appRouter = router({
         const result = await db.createReport({
           userId: ctx.user.id,
           caseStudyId: input.caseStudyId,
+          message: input.message.trim(),
         });
 
         return {
           success: true,
           alreadyReported: !result.created,
         } as const;
+      }),
+
+    reportList: adminProcedure.query(async () => {
+      return db.getReportEntriesForAdmin();
+    }),
+
+    clearReports: adminProcedure
+      .input(z.object({ caseStudyId: z.number() }))
+      .mutation(async ({ input }) => {
+        const caseStudy = await db.getCaseStudyById(input.caseStudyId);
+        if (!caseStudy) return { success: false } as const;
+
+        await db.clearReportsByCaseStudy(input.caseStudyId);
+        return { success: true } as const;
       }),
 
     // favorites list
@@ -482,6 +502,20 @@ export const appRouter = router({
           success: true,
           alreadyClosed: false,
         } as const;
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const quest = await db.getQuestById(input.id);
+        if (!quest) return { success: false } as const;
+
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+        }
+
+        await db.deleteQuest(input.id);
+        return { success: true } as const;
       }),
   }),
 });

@@ -27,10 +27,10 @@ interface AddCaseModalProps {
 type Category = "prompt" | "automation" | "tools" | "business";
 
 const categories = [
-  { id: "prompt" as Category, label: "プロンプト集" },
-  { id: "automation" as Category, label: "自動化" },
-  { id: "tools" as Category, label: "ツール活用" },
-  { id: "business" as Category, label: "業務活用" },
+  { id: "prompt" as Category, label: "Prompt Library" },
+  { id: "automation" as Category, label: "Automation" },
+  { id: "tools" as Category, label: "Tools" },
+  { id: "business" as Category, label: "Business" },
 ];
 
 export function AddCaseModal({
@@ -123,7 +123,7 @@ export function AddCaseModal({
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("画像ファイルを選択してください");
+      toast.error("Please select an image file.");
       return;
     }
 
@@ -132,8 +132,7 @@ export function AddCaseModal({
       setImagePreview(compressedDataUrl);
     } catch (error) {
       console.error(error);
-      console.error(error);
-      toast.error("画像の圧縮に失敗しました");
+      toast.error("Failed to compress image.");
       setImagePreview(null);
     }
   };
@@ -142,7 +141,7 @@ export function AddCaseModal({
     e.preventDefault();
     if (isSaving) return;
     if (!isAuthenticated) {
-      toast.error("ログインが必要です");
+      toast.error("Login required.");
       window.location.href = getLoginUrl();
       return;
     }
@@ -180,7 +179,7 @@ export function AddCaseModal({
           thumbnailKey: caseStudy.thumbnailKey ?? undefined,
         });
 
-        toast.success("事例を更新しました");
+        toast.success("Post updated.");
         onSuccess();
       } else {
         await createMutation.mutateAsync({
@@ -195,12 +194,12 @@ export function AddCaseModal({
           thumbnailUrl,
         });
 
-        toast.success("事例を追加しました");
+        toast.success("Post created.");
         onSuccess();
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error(
-        isEditMode ? "事例の更新に失敗しました" : "事例の追加に失敗しました"
+        isEditMode ? "Failed to update post." : "Failed to create post."
       );
     } finally {
       setIsSaving(false);
@@ -216,13 +215,13 @@ export function AddCaseModal({
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <DialogTitle>
-              {isEditMode ? "事例を編集" : "新しい事例を追加"}
+              {isEditMode ? "Edit Post" : "Create New Post"}
             </DialogTitle>
           </div>
           <DialogDescription>
             {isEditMode
-              ? "事例の内容を更新します"
-              : "AI活用事例を共有して、チーム全体のナレッジを蓄積しましょう"}
+              ? "Update this post."
+              : "Share practical AI examples so your team can learn faster together."}
           </DialogDescription>
         </DialogHeader>
 
@@ -230,14 +229,14 @@ export function AddCaseModal({
           {/* Title */}
           <div>
             <Label htmlFor="title">
-              タイトル <span className="text-red-500">*</span>
+              Title <span className="text-red-500">*</span>
             </Label>
             <Input
               id="title"
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="例: 議事録を自動で構造化"
+              placeholder="e.g. Auto-structure meeting notes"
               className="mt-2"
             />
           </div>
@@ -245,14 +244,14 @@ export function AddCaseModal({
           {/* Description */}
           <div>
             <Label htmlFor="description">
-              簡単な説明 <span className="text-red-500">*</span>
+              Short Description <span className="text-red-500">*</span>
             </Label>
             <Input
               id="description"
               required
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="例: 会議メモをAIが自動で整理・分類"
+              placeholder="e.g. AI organizes and classifies rough meeting notes"
               className="mt-2"
             />
           </div>
@@ -260,7 +259,7 @@ export function AddCaseModal({
           {/* Category */}
           <div>
             <Label>
-              カテゴリ <span className="text-red-500">*</span>
+              Category <span className="text-red-500">*</span>
             </Label>
             <div className="flex flex-wrap gap-2 mt-2">
               {categories.map((category) => (
@@ -284,24 +283,24 @@ export function AddCaseModal({
           {/* Tools */}
           <div>
             <Label htmlFor="tools">
-              使用ツール <span className="text-red-500">*</span>
+              Tools Used <span className="text-red-500">*</span>
             </Label>
             <Input
               id="tools"
               required
               value={formData.tools}
               onChange={(e) => setFormData({ ...formData, tools: e.target.value })}
-              placeholder="例: ChatGPT, GAS (カンマ区切り)"
+              placeholder="e.g. ChatGPT, GAS (comma-separated)"
               className="mt-2"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              カンマで区切って複数入力できます
+              Separate multiple tools with commas.
             </p>
           </div>
 
           {/* Thumbnail Upload */}
           <div>
-            <Label htmlFor="thumbnail">図解・サムネイル</Label>
+            <Label htmlFor="thumbnail">Diagram / Thumbnail</Label>
             <div className="mt-2">
               <input
                 id="thumbnail"
@@ -322,17 +321,17 @@ export function AddCaseModal({
                       className="max-h-48 mx-auto rounded-lg"
                     />
                     <p className="text-xs text-muted-foreground mt-2">
-                      クリックして画像を変更
+                      Click to change image
                     </p>
                   </div>
                 ) : (
                   <>
                     <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                     <p className="text-sm text-foreground">
-                      クリックまたはドラッグして画像をアップロード
+                      Click or drag to upload an image
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      PNG, JPG (推奨: 1200x900px)
+                      PNG, JPG (recommended: 1200x900px)
                     </p>
                   </>
                 )}
@@ -343,14 +342,14 @@ export function AddCaseModal({
           {/* Challenge */}
           <div>
             <Label htmlFor="challenge">
-              解決したい課題 <span className="text-red-500">*</span>
+              Problem to Solve <span className="text-red-500">*</span>
             </Label>
             <Textarea
               id="challenge"
               required
               value={formData.challenge}
               onChange={(e) => setFormData({ ...formData, challenge: e.target.value })}
-              placeholder="例: 週次会議の議事録作成に毎回30分かかっており..."
+              placeholder="e.g. Writing weekly meeting minutes takes 30 minutes every time..."
               rows={3}
               className="mt-2"
             />
@@ -359,14 +358,14 @@ export function AddCaseModal({
           {/* Solution */}
           <div>
             <Label htmlFor="solution">
-              解決策 <span className="text-red-500">*</span>
+              Solution <span className="text-red-500">*</span>
             </Label>
             <Textarea
               id="solution"
               required
               value={formData.solution}
               onChange={(e) => setFormData({ ...formData, solution: e.target.value })}
-              placeholder="例: Google Docsにメモしたラフな会議内容を、ChatGPT APIで..."
+              placeholder="e.g. Send rough notes from Google Docs to the ChatGPT API..."
               rows={3}
               className="mt-2"
             />
@@ -375,14 +374,14 @@ export function AddCaseModal({
           {/* Steps */}
           <div>
             <Label htmlFor="steps">
-              実装ステップ <span className="text-red-500">*</span>
+              Implementation Steps <span className="text-red-500">*</span>
             </Label>
             <Textarea
               id="steps"
               required
               value={formData.steps}
               onChange={(e) => setFormData({ ...formData, steps: e.target.value })}
-              placeholder="各ステップを改行で区切って入力&#10;例:&#10;1. Google Docsに会議中のメモを記録&#10;2. GASでドキュメントの内容を取得&#10;3. ChatGPT APIに送信..."
+              placeholder="Enter one step per line&#10;e.g.&#10;1. Record meeting notes in Google Docs&#10;2. Fetch doc content with GAS&#10;3. Send to the ChatGPT API..."
               rows={5}
               className="mt-2"
             />
@@ -390,12 +389,12 @@ export function AddCaseModal({
 
           {/* Impact */}
           <div>
-            <Label htmlFor="impact">効果・インパクト(任意)</Label>
+            <Label htmlFor="impact">Impact (Optional)</Label>
             <Input
               id="impact"
               value={formData.impact}
               onChange={(e) => setFormData({ ...formData, impact: e.target.value })}
-              placeholder="例: 議事録作成時間が30分→5分に短縮"
+              placeholder="e.g. Reduced minutes writing time from 30 min to 5 min"
               className="mt-2"
             />
           </div>
@@ -405,9 +404,9 @@ export function AddCaseModal({
             <div className="flex gap-3">
               <Sparkles className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-foreground">
-                <p className="font-medium mb-1">👀 登録後は...</p>
+                <p className="font-medium mb-1">After posting...</p>
                 <p className="text-muted-foreground">
-                  タグは自動生成され、ギャラリーに公開されます。
+                  Tags are auto-generated and your post is published to the gallery.
                 </p>
               </div>
             </div>
@@ -416,7 +415,7 @@ export function AddCaseModal({
           {/* Actions */}
           <div className="flex gap-3 pt-4">
             <Button type="button" onClick={onClose} variant="outline" className="flex-1">
-              キャンセル
+              Cancel
             </Button>
             <Button
               type="submit"
@@ -424,10 +423,10 @@ export function AddCaseModal({
               disabled={isSaving}
             >
               {isSaving
-                ? "保存中..."
+                ? "Saving..."
                 : isEditMode
-                  ? "更新する"
-                  : "追加する"}
+                  ? "Update"
+                  : "Create"}
             </Button>
           </div>
         </form>

@@ -116,6 +116,7 @@ export const reports = sqliteTable(
     caseStudyId: integer("case_study_id")
       .notNull()
       .references(() => caseStudies.id, { onDelete: "cascade" }),
+    message: text("message"),
     createdAt: integer("created_at").notNull().default(nowMs),
   },
   table => ({
