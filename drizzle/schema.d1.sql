@@ -6,6 +6,7 @@ CREATE TABLE users (
   avatarUrl text,
   loginMethod text,
   role text not null default 'user',
+  exp integer not null default 0,
   createdAt integer not null default (unixepoch() * 1000),
   updatedAt integer not null default (unixepoch() * 1000),
   lastSignedIn integer not null default (unixepoch() * 1000)

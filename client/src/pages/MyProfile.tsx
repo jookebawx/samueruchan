@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { getLevelProgress } from "@/lib/leveling";
 import { trpc } from "@/lib/trpc";
 
 export default function MyProfile() {
@@ -32,6 +34,10 @@ export default function MyProfile() {
   });
 
   const posts = useMemo(() => myPostsQuery.data ?? [], [myPostsQuery.data]);
+  const levelProgress = useMemo(
+    () => getLevelProgress(user?.exp),
+    [user?.exp]
+  );
 
   const handleSaveName = async () => {
     const next = name.trim();
@@ -104,6 +110,24 @@ export default function MyProfile() {
                 {updateNameMutation.isPending ? "Saving..." : "Save"}
               </Button>
             </div>
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">Level {levelProgress.level}</p>
+              <p className="text-xs text-muted-foreground">
+                {levelProgress.currentLevelExp} / {levelProgress.nextLevelExp} EXP
+              </p>
+            </div>
+            <Progress value={levelProgress.progressPercent} />
+            <p className="text-xs text-muted-foreground">
+              {levelProgress.expToNextLevel} EXP to next level.
+              {" "}
+              Total EXP: {levelProgress.totalExp}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Gain EXP by posting and solving quests.
+            </p>
           </div>
         </CardContent>
       </Card>

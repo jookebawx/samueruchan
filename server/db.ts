@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import {
   InsertCaseStudy,
@@ -18,6 +18,7 @@ import { ENV } from "./_core/env";
 let _db: ReturnType<typeof drizzle> | null = null;
 let _dbBinding: D1DatabaseLike | null = null;
 let _avatarColumnEnsured = false;
+let _userExpColumnEnsured = false;
 let _reportsTableEnsured = false;
 let _questTablesEnsured = false;
 
@@ -48,6 +49,29 @@ async function ensureAvatarColumn() {
       message.includes("already exists");
     if (!isAlreadyExists) {
       console.warn("[Database] Failed to add users.avatarUrl column:", error);
+    }
+  }
+}
+
+async function ensureUserExpColumn() {
+  if (_userExpColumnEnsured || !_dbBinding) return;
+  _userExpColumnEnsured = true;
+
+  const binding = _dbBinding as unknown as D1BindingLike;
+  if (typeof binding.prepare !== "function") return;
+
+  try {
+    await binding
+      .prepare("ALTER TABLE users ADD COLUMN exp integer not null default 0")
+      .run();
+    console.log("[Database] Added users.exp column.");
+  } catch (error) {
+    const message = String(error).toLowerCase();
+    const isAlreadyExists =
+      message.includes("duplicate column name") ||
+      message.includes("already exists");
+    if (!isAlreadyExists) {
+      console.warn("[Database] Failed to add users.exp column:", error);
     }
   }
 }
@@ -191,6 +215,7 @@ export async function getDb() {
     return _db;
   }
   await ensureAvatarColumn();
+  await ensureUserExpColumn();
   await ensureReportsTable();
   await ensureQuestTables();
   return _db;
@@ -304,6 +329,26 @@ export async function updateUserName(userId: number, name: string) {
     .update(users)
     .set({
       name,
+      updatedAt: Date.now(),
+    })
+    .where(eq(users.id, userId));
+
+  return true;
+}
+
+export async function addUserExp(userId: number, amount: number) {
+  if (!Number.isFinite(amount) || amount <= 0) return false;
+
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot add exp: database not available");
+    return false;
+  }
+
+  await db
+    .update(users)
+    .set({
+      exp: sql`${users.exp} + ${Math.trunc(amount)}`,
       updatedAt: Date.now(),
     })
     .where(eq(users.id, userId));

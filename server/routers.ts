@@ -25,6 +25,10 @@ const decodeBase64 = (input: string) => {
   throw new Error("Base64 decoding is not supported in this environment.");
 };
 
+const POST_EXP_REWARD = 40;
+const QUEST_POST_EXP_REWARD = 25;
+const QUEST_SOLVE_EXP_REWARD = 120;
+
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
@@ -193,6 +197,7 @@ export const appRouter = router({
           tags: JSON.stringify(tags),
           isRecommended: 0,
         });
+        await db.addUserExp(ctx.user.id, POST_EXP_REWARD);
 
         return { success: true, id: Number(result.insertId) };
       }),
@@ -408,6 +413,7 @@ export const appRouter = router({
           solverUserId: null,
           closedAt: null,
         });
+        await db.addUserExp(ctx.user.id, QUEST_POST_EXP_REWARD);
 
         return {
           success: true,
@@ -498,6 +504,9 @@ export const appRouter = router({
           solvedAnswerId,
           solverUserId,
         });
+        if (input.outcome === "finished" && solverUserId) {
+          await db.addUserExp(solverUserId, QUEST_SOLVE_EXP_REWARD);
+        }
         return {
           success: true,
           alreadyClosed: false,

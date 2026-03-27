@@ -2,13 +2,19 @@ import { type CaseStudy } from "@/lib/caseStudies";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Flag, Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Share2, Sun, Ticket, User } from "lucide-react";
+import { ChevronDown, Flag, Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Share2, Sun, Ticket, User } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AddCaseModal } from "@/components/AddCaseModal";
 import { CaseDetailModal } from "@/components/CaseDetailModal";
@@ -302,6 +308,15 @@ export default function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to log out.");
+    }
+  };
+
   const handleReportDialogOpenChange = (open: boolean) => {
     setIsReportDialogOpen(open);
     if (!open && !reportMutation.isPending) {
@@ -418,14 +433,28 @@ export default function Home() {
                 </Button>
               )}
               {isAuthenticated && (
-                <Button
-                  onClick={handleSwitchAccount}
-                  variant="outline"
-                  className="flex items-center gap-2 rounded-full"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="text-sm">Switch account</span>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2 rounded-full"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span className="text-sm">Account</span>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem onSelect={handleLogout}>
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleSwitchAccount}>
+                      <User className="w-4 h-4" />
+                      Switch account
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           </div>
