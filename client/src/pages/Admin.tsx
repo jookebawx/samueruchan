@@ -85,6 +85,16 @@ export default function Admin() {
   );
 
   const handleDelete = async (id: number, title: string) => {
+    const reason = window.prompt(
+      `Why are you deleting "${title}"?\n\nThis reason will be sent to the user. (min 5 chars)`
+    );
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (trimmedReason.length < 5) {
+      toast.error("Please enter at least 5 characters for the deletion reason.");
+      return;
+    }
+
     const confirmed = window.confirm(
       `Delete "${title}"?\n\nThis action cannot be undone.`
     );
@@ -92,7 +102,7 @@ export default function Admin() {
 
     try {
       setDeletingId(id);
-      await deleteMutation.mutateAsync({ id });
+      await deleteMutation.mutateAsync({ id, deletionReason: trimmedReason });
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete post.");
@@ -102,6 +112,16 @@ export default function Admin() {
   };
 
   const handleDeleteQuest = async (id: number, title: string) => {
+    const reason = window.prompt(
+      `Why are you deleting quest "${title}"?\n\nThis reason will be sent to the user. (min 5 chars)`
+    );
+    if (reason === null) return;
+    const trimmedReason = reason.trim();
+    if (trimmedReason.length < 5) {
+      toast.error("Please enter at least 5 characters for the deletion reason.");
+      return;
+    }
+
     const confirmed = window.confirm(
       `Delete quest "${title}"?\n\nThis action cannot be undone.`
     );
@@ -109,7 +129,10 @@ export default function Admin() {
 
     try {
       setDeletingQuestId(id);
-      await deleteQuestMutation.mutateAsync({ id });
+      await deleteQuestMutation.mutateAsync({
+        id,
+        deletionReason: trimmedReason,
+      });
     } catch (error) {
       console.error(error);
       toast.error("Failed to delete quest.");

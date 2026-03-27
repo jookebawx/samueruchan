@@ -51,6 +51,19 @@ CREATE TABLE reports (
 CREATE UNIQUE INDEX reports_user_case_unique
   ON reports(user_id, case_study_id);
 
+CREATE TABLE user_notifications (
+  id integer primary key autoincrement,
+  user_id integer not null references users(id) on delete cascade,
+  type text not null,
+  title text not null,
+  message text not null,
+  is_read integer not null default 0,
+  created_at integer not null default (unixepoch() * 1000)
+);
+
+CREATE INDEX user_notifications_user_created_idx
+  ON user_notifications(user_id, created_at);
+
 CREATE TABLE quests (
   id integer primary key autoincrement,
   user_id integer not null references users(id) on delete cascade,

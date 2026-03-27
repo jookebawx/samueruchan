@@ -10,6 +10,21 @@ import { Progress } from "@/components/ui/progress";
 import { getLevelProgress } from "@/lib/leveling";
 import { trpc } from "@/lib/trpc";
 
+function getQuestStatusLabel(status: string | null | undefined) {
+  switch (status) {
+    case "finished":
+      return "Solved";
+    case "unsolved":
+      return "Unsolved";
+    case "suspended":
+      return "Suspended";
+    case "open":
+      return "Open";
+    default:
+      return "Unsolved";
+  }
+}
+
 export default function MyProfile() {
   const { user, loading: authLoading } = useAuth({
     redirectOnUnauthenticated: true,
@@ -25,6 +40,14 @@ export default function MyProfile() {
     enabled: Boolean(user),
     refetchOnWindowFocus: false,
   });
+  const myQuestsQuery = trpc.profile.myQuests.useQuery(undefined, {
+    enabled: Boolean(user),
+    refetchOnWindowFocus: false,
+  });
+  const myNotificationsQuery = trpc.profile.myNotifications.useQuery(undefined, {
+    enabled: Boolean(user),
+    refetchOnWindowFocus: false,
+  });
 
   const updateNameMutation = trpc.profile.updateName.useMutation({
     onSuccess: async () => {
@@ -34,6 +57,11 @@ export default function MyProfile() {
   });
 
   const posts = useMemo(() => myPostsQuery.data ?? [], [myPostsQuery.data]);
+  const quests = useMemo(() => myQuestsQuery.data ?? [], [myQuestsQuery.data]);
+  const notifications = useMemo(
+    () => myNotificationsQuery.data ?? [],
+    [myNotificationsQuery.data]
+  );
   const levelProgress = useMemo(
     () => getLevelProgress(user?.exp),
     [user?.exp]
@@ -155,6 +183,66 @@ export default function MyProfile() {
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Updated: {formatDateTime(post.updatedAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>My Quests ({quests.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {myQuestsQuery.isLoading ? (
+            <p className="text-muted-foreground">Loading quests...</p>
+          ) : quests.length === 0 ? (
+            <p className="text-muted-foreground">You have not posted any quests yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {quests.map(quest => (
+                <div key={quest.id} className="rounded-md border p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{quest.title}</p>
+                    <Badge variant="outline">{getQuestStatusLabel(quest.status)}</Badge>
+                    <Badge variant="secondary">{quest.answerCount} answers</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-3">
+                    {quest.content}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Updated: {formatDateTime(quest.updatedAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notifications</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {myNotificationsQuery.isLoading ? (
+            <p className="text-muted-foreground">Loading notifications...</p>
+          ) : notifications.length === 0 ? (
+            <p className="text-muted-foreground">No notifications yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {notifications.map(item => (
+                <div key={item.id} className="rounded-md border p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-medium">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDateTime(item.createdAt)}
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {item.message}
                   </p>
                 </div>
               ))}

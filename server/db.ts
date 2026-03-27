@@ -1,16 +1,18 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import {
   InsertCaseStudy,
   InsertQuest,
   InsertQuestAnswer,
   InsertReport,
+  InsertUserNotification,
   InsertUser,
   caseStudies,
   favorites,
   questAnswers,
   quests,
   reports,
+  userNotifications,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -21,6 +23,7 @@ let _avatarColumnEnsured = false;
 let _userExpColumnEnsured = false;
 let _reportsTableEnsured = false;
 let _questTablesEnsured = false;
+let _notificationsTableEnsured = false;
 
 type D1DatabaseLike = Parameters<typeof drizzle>[0];
 
@@ -113,6 +116,37 @@ async function ensureReportsTable() {
       .run();
   } catch (error) {
     console.warn("[Database] Failed to create reports table:", error);
+  }
+}
+
+async function ensureNotificationsTable() {
+  if (_notificationsTableEnsured || !_dbBinding) return;
+  _notificationsTableEnsured = true;
+
+  const binding = _dbBinding as unknown as D1BindingLike;
+  if (typeof binding.prepare !== "function") return;
+
+  try {
+    await binding
+      .prepare(
+        "CREATE TABLE IF NOT EXISTS user_notifications (" +
+          "id integer primary key autoincrement, " +
+          "user_id integer not null references users(id) on delete cascade, " +
+          "type text not null, " +
+          "title text not null, " +
+          "message text not null, " +
+          "is_read integer not null default 0, " +
+          "created_at integer not null default (unixepoch() * 1000)" +
+          ")"
+      )
+      .run();
+    await binding
+      .prepare(
+        "CREATE INDEX IF NOT EXISTS user_notifications_user_created_idx ON user_notifications(user_id, created_at)"
+      )
+      .run();
+  } catch (error) {
+    console.warn("[Database] Failed to create user_notifications table:", error);
   }
 }
 
@@ -217,6 +251,7 @@ export async function getDb() {
   await ensureAvatarColumn();
   await ensureUserExpColumn();
   await ensureReportsTable();
+  await ensureNotificationsTable();
   await ensureQuestTables();
   return _db;
 }
@@ -336,24 +371,39 @@ export async function updateUserName(userId: number, name: string) {
   return true;
 }
 
-export async function addUserExp(userId: number, amount: number) {
-  if (!Number.isFinite(amount) || amount <= 0) return false;
+export async function changeUserExp(userId: number, delta: number) {
+  if (!Number.isFinite(delta) || Math.trunc(delta) === 0) return false;
 
   const db = await getDb();
   if (!db) {
-    console.warn("[Database] Cannot add exp: database not available");
+    console.warn("[Database] Cannot change exp: database not available");
     return false;
   }
+
+  const safeDelta = Math.trunc(delta);
 
   await db
     .update(users)
     .set({
-      exp: sql`${users.exp} + ${Math.trunc(amount)}`,
+      exp: sql`CASE
+        WHEN ${users.exp} + ${safeDelta} < 0 THEN 0
+        ELSE ${users.exp} + ${safeDelta}
+      END`,
       updatedAt: Date.now(),
     })
     .where(eq(users.id, userId));
 
   return true;
+}
+
+export async function addUserExp(userId: number, amount: number) {
+  if (!Number.isFinite(amount) || amount <= 0) return false;
+  return changeUserExp(userId, Math.abs(Math.trunc(amount)));
+}
+
+export async function subtractUserExp(userId: number, amount: number) {
+  if (!Number.isFinite(amount) || amount <= 0) return false;
+  return changeUserExp(userId, -Math.abs(Math.trunc(amount)));
 }
 
 // ========================================
@@ -457,6 +507,27 @@ export async function getUserCaseStudies(userId: number) {
     .where(eq(caseStudies.userId, userId))
     .orderBy(caseStudies.createdAt);
   return result;
+}
+
+export async function getUserQuests(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const result = await db
+    .select({
+      quest: quests,
+      answerCount: count(questAnswers.id),
+    })
+    .from(quests)
+    .leftJoin(questAnswers, eq(questAnswers.questId, quests.id))
+    .where(eq(quests.userId, userId))
+    .groupBy(quests.id)
+    .orderBy(desc(quests.createdAt));
+
+  return result.map(row => ({
+    ...row.quest,
+    answerCount: Number(row.answerCount ?? 0),
+  }));
 }
 
 // ========================================
@@ -688,6 +759,33 @@ export async function getReportEntriesForAdmin() {
     .orderBy(desc(reports.createdAt));
 }
 
+export async function getUserNotifications(userId: number, limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select({
+      id: userNotifications.id,
+      type: userNotifications.type,
+      title: userNotifications.title,
+      message: userNotifications.message,
+      isRead: userNotifications.isRead,
+      createdAt: userNotifications.createdAt,
+    })
+    .from(userNotifications)
+    .where(eq(userNotifications.userId, userId))
+    .orderBy(desc(userNotifications.createdAt))
+    .limit(Math.max(1, Math.min(100, Math.trunc(limit))));
+}
+
+export async function createUserNotification(data: InsertUserNotification) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.insert(userNotifications).values(data);
+  return true;
+}
+
 export async function isFavorite(userId: number, caseStudyId: number) {
   const db = await getDb();
   if (!db) return false;
@@ -701,6 +799,20 @@ export async function isFavorite(userId: number, caseStudyId: number) {
     .limit(1);
   
   return result.length > 0;
+}
+
+export async function getFavoriteCountByCaseStudy(caseStudyId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const [result] = await db
+    .select({
+      count: count(favorites.id),
+    })
+    .from(favorites)
+    .where(eq(favorites.caseStudyId, caseStudyId));
+
+  return Number(result?.count ?? 0);
 }
 
 export async function addFavorite(userId: number, caseStudyId: number) {

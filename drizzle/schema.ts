@@ -132,6 +132,35 @@ export type Report = typeof reports.$inferSelect;
 export type InsertReport = typeof reports.$inferInsert;
 
 /**
+ * User notifications table.
+ */
+export const userNotifications = sqliteTable(
+  "user_notifications",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type", {
+      enum: ["post_deleted", "quest_deleted"],
+    }).notNull(),
+    title: text("title").notNull(),
+    message: text("message").notNull(),
+    isRead: integer("is_read").notNull().default(0),
+    createdAt: integer("created_at").notNull().default(nowMs),
+  },
+  table => ({
+    userCreatedIdx: index("user_notifications_user_created_idx").on(
+      table.userId,
+      table.createdAt
+    ),
+  })
+);
+
+export type UserNotification = typeof userNotifications.$inferSelect;
+export type InsertUserNotification = typeof userNotifications.$inferInsert;
+
+/**
  * Quests table.
  */
 export const quests = sqliteTable(

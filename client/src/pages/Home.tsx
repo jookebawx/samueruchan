@@ -170,8 +170,26 @@ export default function Home() {
       window.location.href = getLoginUrl();
       return;
     }
+
+    let deletionReason: string | undefined;
+    if (user?.role === "admin") {
+      const reason = window.prompt(
+        "Why are you deleting this post? This reason will be sent to the user. (min 5 chars)"
+      );
+      if (reason === null) return;
+      const trimmedReason = reason.trim();
+      if (trimmedReason.length < 5) {
+        toast.error("Please enter at least 5 characters for the deletion reason.");
+        return;
+      }
+      deletionReason = trimmedReason;
+    }
+
     try {
-      const result = await deleteMutation.mutateAsync({ id: caseId });
+      const result = await deleteMutation.mutateAsync({
+        id: caseId,
+        deletionReason,
+      });
       if (result?.success) {
         setSelectedCaseId(null);
       }

@@ -25,9 +25,10 @@ const decodeBase64 = (input: string) => {
   throw new Error("Base64 decoding is not supported in this environment.");
 };
 
-const POST_EXP_REWARD = 40;
-const QUEST_POST_EXP_REWARD = 25;
-const QUEST_SOLVE_EXP_REWARD = 120;
+const POST_EXP_REWARD = 50;
+const QUEST_POST_EXP_REWARD = 30;
+const QUEST_SOLVE_EXP_REWARD = 180;
+const LIKE_RECEIVED_EXP_REWARD = 8;
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -82,6 +83,14 @@ export const appRouter = router({
         steps: JSON.parse(post.steps),
         tags: JSON.parse(post.tags),
       }));
+    }),
+
+    myQuests: protectedProcedure.query(async ({ ctx }) => {
+      return db.getUserQuests(ctx.user.id);
+    }),
+
+    myNotifications: protectedProcedure.query(async ({ ctx }) => {
+      return db.getUserNotifications(ctx.user.id, 30);
     }),
 
     updateName: protectedProcedure
@@ -262,13 +271,30 @@ export const appRouter = router({
     toggleFavorite: protectedProcedure
       .input(z.object({ caseStudyId: z.number() }))
       .mutation(async ({ input, ctx }) => {
+        const caseStudy = await db.getCaseStudyById(input.caseStudyId);
+        if (!caseStudy) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Post not found.",
+          });
+        }
+
         const isFav = await db.isFavorite(ctx.user.id, input.caseStudyId);
         
         if (isFav) {
           await db.removeFavorite(ctx.user.id, input.caseStudyId);
+          if (caseStudy.userId !== ctx.user.id) {
+            await db.subtractUserExp(
+              caseStudy.userId,
+              LIKE_RECEIVED_EXP_REWARD
+            );
+          }
           return { isFavorite: false };
         } else {
-          await db.addFavorite(ctx.user.id, input.caseStudyId);
+          const added = await db.addFavorite(ctx.user.id, input.caseStudyId);
+          if (added && caseStudy.userId !== ctx.user.id) {
+            await db.addUserExp(caseStudy.userId, LIKE_RECEIVED_EXP_REWARD);
+          }
           return { isFavorite: true };
         }
       }),
@@ -334,13 +360,43 @@ export const appRouter = router({
 
     // delete case study
     delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
+      .input(
+        z.object({
+          id: z.number(),
+          deletionReason: z.string().trim().min(5).max(500).optional(),
+        })
+      )
       .mutation(async ({ input, ctx }) => {
         const caseStudy = await db.getCaseStudyById(input.id);
         if (!caseStudy) return { success: false };
 
         if (caseStudy.userId !== ctx.user.id && ctx.user.role !== "admin") {
           throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+        }
+
+        if (ctx.user.role === "admin") {
+          const reason = input.deletionReason?.trim();
+          if (!reason) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Deletion reason is required for admin moderation.",
+            });
+          }
+
+          const likeCount = await db.getFavoriteCountByCaseStudy(input.id);
+          const expToRevert =
+            POST_EXP_REWARD + likeCount * LIKE_RECEIVED_EXP_REWARD;
+          await db.subtractUserExp(caseStudy.userId, expToRevert);
+          await db.createUserNotification({
+            userId: caseStudy.userId,
+            type: "post_deleted",
+            title: "Your post was removed by an admin",
+            message:
+              `Post: ${caseStudy.title}\n` +
+              `Reason: ${reason}\n` +
+              `EXP reverted: ${expToRevert}`,
+            isRead: 0,
+          });
         }
 
         await db.deleteCaseStudy(input.id);
@@ -514,13 +570,56 @@ export const appRouter = router({
       }),
 
     delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
+      .input(
+        z.object({
+          id: z.number(),
+          deletionReason: z.string().trim().min(5).max(500),
+        })
+      )
       .mutation(async ({ input, ctx }) => {
         const quest = await db.getQuestById(input.id);
         if (!quest) return { success: false } as const;
 
         if (ctx.user.role !== "admin") {
           throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+        }
+
+        const reason = input.deletionReason.trim();
+        const solvedByOwner =
+          quest.status === "finished" &&
+          quest.solverUserId !== null &&
+          quest.solverUserId === quest.userId;
+        const ownerExpRevert =
+          QUEST_POST_EXP_REWARD +
+          (solvedByOwner ? QUEST_SOLVE_EXP_REWARD : 0);
+        await db.subtractUserExp(quest.userId, ownerExpRevert);
+        await db.createUserNotification({
+          userId: quest.userId,
+          type: "quest_deleted",
+          title: "Your quest was removed by an admin",
+          message:
+            `Quest: ${quest.title}\n` +
+            `Reason: ${reason}\n` +
+            `EXP reverted: ${ownerExpRevert}`,
+          isRead: 0,
+        });
+
+        if (
+          quest.status === "finished" &&
+          quest.solverUserId !== null &&
+          quest.solverUserId !== quest.userId
+        ) {
+          await db.subtractUserExp(quest.solverUserId, QUEST_SOLVE_EXP_REWARD);
+          await db.createUserNotification({
+            userId: quest.solverUserId,
+            type: "quest_deleted",
+            title: "A solved quest was removed by an admin",
+            message:
+              `Quest: ${quest.title}\n` +
+              `Reason: ${reason}\n` +
+              `EXP reverted: ${QUEST_SOLVE_EXP_REWARD}`,
+            isRead: 0,
+          });
         }
 
         await db.deleteQuest(input.id);
