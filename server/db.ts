@@ -344,6 +344,7 @@ export async function getUserPublicById(userId: number) {
       id: users.id,
       name: users.name,
       avatarUrl: users.avatarUrl,
+      exp: users.exp,
       createdAt: users.createdAt,
     })
     .from(users)

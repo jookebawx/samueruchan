@@ -11,14 +11,14 @@ const BASE_LEVEL_EXP = 100;
 const LEVEL_STEP_EXP = 50;
 
 export function getExpRequiredForLevel(level: number) {
-  const safeLevel = Math.max(1, Math.floor(level));
-  return BASE_LEVEL_EXP + (safeLevel - 1) * LEVEL_STEP_EXP;
+  const safeLevel = Math.max(0, Math.floor(level));
+  return BASE_LEVEL_EXP + safeLevel * LEVEL_STEP_EXP;
 }
 
 export function getLevelProgress(totalExp: number | null | undefined): LevelProgress {
   const safeTotalExp = Math.max(0, Math.floor(totalExp ?? 0));
 
-  let level = 1;
+  let level = 0;
   let currentLevelExp = safeTotalExp;
   let nextLevelExp = getExpRequiredForLevel(level);
 

@@ -24,7 +24,11 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 
 type Category = "all" | "trending" | "liked" | "prompt" | "automation" | "tools" | "business";
-const AI_DISCUSSION_EMBED_URL = "https://udify.app/chatbot/xeLQIFLhBycwJRFF";
+const DIFY_CHATBOT_TOKEN = "xeLQIFLhBycwJRFF";
+const DIFY_EMBED_SCRIPT_ID = DIFY_CHATBOT_TOKEN;
+const DIFY_EMBED_SCRIPT_SRC = "https://udify.app/embed.min.js";
+const DIFY_STYLE_ID = "dify-chatbot-style-overrides";
+const DIFY_BUBBLE_BUTTON_ID = "dify-chatbot-bubble-button";
 
 const categories = [
   { id: "all" as Category, label: "ALL" },
@@ -59,7 +63,6 @@ export default function Home() {
   const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
-  const [isAiDiscussionOpen, setIsAiDiscussionOpen] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [reportMessage, setReportMessage] = useState("");
   const [reportTarget, setReportTarget] = useState<{ caseId: number } | null>(null);
@@ -343,6 +346,58 @@ export default function Home() {
     }
   };
 
+  const handleOpenAiDiscussion = () => {
+    const bubbleButton = document.getElementById(DIFY_BUBBLE_BUTTON_ID);
+    if (bubbleButton instanceof HTMLButtonElement) {
+      bubbleButton.click();
+      return;
+    }
+    toast.message("AI chat is loading. Please try again.");
+  };
+
+  useEffect(() => {
+    type DifyChatbotConfig = {
+      token: string;
+      inputs: Record<string, string>;
+      systemVariables: Record<string, string>;
+      userVariables: Record<string, string>;
+    };
+    type DifyWindow = Window & {
+      difyChatbotConfig?: DifyChatbotConfig;
+    };
+
+    const difyWindow = window as DifyWindow;
+    difyWindow.difyChatbotConfig = {
+      token: DIFY_CHATBOT_TOKEN,
+      inputs: {},
+      systemVariables: {},
+      userVariables: {},
+    };
+
+    if (!document.getElementById(DIFY_STYLE_ID)) {
+      const style = document.createElement("style");
+      style.id = DIFY_STYLE_ID;
+      style.textContent = `
+        #dify-chatbot-bubble-button {
+          background-color: #1C64F2 !important;
+        }
+        #dify-chatbot-bubble-window {
+          width: 24rem !important;
+          height: 40rem !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    if (!document.getElementById(DIFY_EMBED_SCRIPT_ID)) {
+      const script = document.createElement("script");
+      script.src = DIFY_EMBED_SCRIPT_SRC;
+      script.id = DIFY_EMBED_SCRIPT_ID;
+      script.defer = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
   useEffect(() => {
     if (listQuery.isLoading || hasHandledSharedPostRef.current) {
       return;
@@ -403,7 +458,7 @@ export default function Home() {
               )}
               <button
                 type="button"
-                onClick={() => setIsAiDiscussionOpen(true)}
+                onClick={handleOpenAiDiscussion}
                 className="flex items-center gap-2 px-5 py-2.5 text-foreground hover:bg-muted rounded-full transition-colors"
               >
                 <MessageCircle className="w-4 h-4" />
@@ -414,6 +469,11 @@ export default function Home() {
                 <a href="/quest" className="flex items-center gap-2">
                   <Ticket className="w-4 h-4" />
                   <span className="text-sm">Quest</span>
+                </a>
+              </Button>
+              <Button asChild variant="outline" className="rounded-full">
+                <a href="/about">
+                  <span className="text-sm">About</span>
                 </a>
               </Button>
 
@@ -731,22 +791,6 @@ export default function Home() {
               {reportMutation.isPending ? "Reporting..." : "Submit Report"}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isAiDiscussionOpen} onOpenChange={setIsAiDiscussionOpen}>
-        <DialogContent className="h-[90vh] w-[95vw] max-w-6xl overflow-hidden p-0">
-          <DialogHeader className="sr-only">
-            <DialogTitle>AI Discussion</DialogTitle>
-            <DialogDescription>Embedded chatbot for AI discussion.</DialogDescription>
-          </DialogHeader>
-          <iframe
-            src={AI_DISCUSSION_EMBED_URL}
-            title="AI Discussion Chatbot"
-            style={{ width: "100%", height: "100%", minHeight: "700px" }}
-            frameBorder="0"
-            allow="microphone"
-          />
         </DialogContent>
       </Dialog>
     </div>

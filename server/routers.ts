@@ -68,6 +68,7 @@ export const appRouter = router({
             id: profile.id,
             name: profile.name,
             avatarUrl: profile.avatarUrl,
+            exp: profile.exp,
             createdAt: profile.createdAt,
           },
           posts: parsedPosts,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getLoginUrl } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -159,6 +159,7 @@ function stripMarkdown(content: string) {
 export default function QuestPage() {
   const utils = trpc.useUtils();
   const { isAuthenticated, user } = useAuth();
+  const hasHandledSharedQuestRef = useRef(false);
 
   const [filter, setFilter] = useState<QuestFilter>("open");
   const [searchQuery, setSearchQuery] = useState("");
@@ -180,6 +181,25 @@ export default function QuestPage() {
       setSelectedQuestId(null);
       return;
     }
+
+    if (!hasHandledSharedQuestRef.current) {
+      hasHandledSharedQuestRef.current = true;
+      const rawQuestId = new URLSearchParams(window.location.search).get(
+        "quest"
+      );
+
+      if (rawQuestId) {
+        const sharedQuestId = Number(rawQuestId);
+        if (
+          Number.isInteger(sharedQuestId) &&
+          quests.some(quest => quest.id === sharedQuestId)
+        ) {
+          setSelectedQuestId(sharedQuestId);
+          return;
+        }
+      }
+    }
+
     if (!selectedQuestId || !quests.some(quest => quest.id === selectedQuestId)) {
       setSelectedQuestId(quests[0].id);
     }

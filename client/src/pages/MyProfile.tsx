@@ -184,6 +184,11 @@ export default function MyProfile() {
                   <p className="text-xs text-muted-foreground">
                     Updated: {formatDateTime(post.updatedAt)}
                   </p>
+                  <div className="pt-1">
+                    <Button asChild variant="outline" size="sm">
+                      <a href={`/?post=${post.id}`}>Open Post</a>
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -215,6 +220,11 @@ export default function MyProfile() {
                   <p className="text-xs text-muted-foreground">
                     Updated: {formatDateTime(quest.updatedAt)}
                   </p>
+                  <div className="pt-1">
+                    <Button asChild variant="outline" size="sm">
+                      <a href={`/quest?quest=${quest.id}`}>Open Quest</a>
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

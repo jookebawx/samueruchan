@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { getLevelProgress } from "@/lib/leveling";
 import { trpc } from "@/lib/trpc";
 
 type UserProfileProps = {
@@ -50,6 +51,10 @@ export default function UserProfile({ userId }: UserProfileProps) {
   const profile = profileQuery.data?.user ?? null;
   const posts = useMemo(() => profileQuery.data?.posts ?? [], [profileQuery.data?.posts]);
   const isOwner = Boolean(profileQuery.data?.isOwner);
+  const levelProgress = useMemo(
+    () => getLevelProgress(profile?.exp),
+    [profile?.exp]
+  );
 
   useEffect(() => {
     setName(profile?.name ?? "");
@@ -138,6 +143,7 @@ export default function UserProfile({ userId }: UserProfileProps) {
               <p className="text-xs text-muted-foreground">Display name</p>
               <p className="text-sm font-medium">{displayName}</p>
             </div>
+            <Badge variant="secondary">Level {levelProgress.level}</Badge>
           </div>
 
           {isOwner && (
