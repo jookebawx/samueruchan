@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ChevronDown, Flag, Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Share2, Sun, Ticket, User } from "lucide-react";
+import { ChevronDown, Flag, Heart, LogOut, Moon, Pencil, Plus, Search, Share2, Sun, Ticket, User } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AddCaseModal } from "@/components/AddCaseModal";
 import { CaseDetailModal } from "@/components/CaseDetailModal";
@@ -28,7 +28,6 @@ const DIFY_CHATBOT_TOKEN = "xeLQIFLhBycwJRFF";
 const DIFY_EMBED_SCRIPT_ID = DIFY_CHATBOT_TOKEN;
 const DIFY_EMBED_SCRIPT_SRC = "https://udify.app/embed.min.js";
 const DIFY_STYLE_ID = "dify-chatbot-style-overrides";
-const DIFY_BUBBLE_BUTTON_ID = "dify-chatbot-bubble-button";
 
 const categories = [
   { id: "all" as Category, label: "ALL" },
@@ -346,15 +345,6 @@ export default function Home() {
     }
   };
 
-  const handleOpenAiDiscussion = () => {
-    const bubbleButton = document.getElementById(DIFY_BUBBLE_BUTTON_ID);
-    if (bubbleButton instanceof HTMLButtonElement) {
-      bubbleButton.click();
-      return;
-    }
-    toast.message("AI chat is loading. Please try again.");
-  };
-
   useEffect(() => {
     type DifyChatbotConfig = {
       token: string;
@@ -380,10 +370,15 @@ export default function Home() {
       style.textContent = `
         #dify-chatbot-bubble-button {
           background-color: #1C64F2 !important;
+          display: flex !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          z-index: 70 !important;
         }
         #dify-chatbot-bubble-window {
           width: 24rem !important;
           height: 40rem !important;
+          z-index: 70 !important;
         }
       `;
       document.head.appendChild(style);
@@ -456,15 +451,6 @@ export default function Home() {
                   />
                 </div>
               )}
-              <button
-                type="button"
-                onClick={handleOpenAiDiscussion}
-                className="flex items-center gap-2 px-5 py-2.5 text-foreground hover:bg-muted rounded-full transition-colors"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span className="text-sm font-medium">Ask AI</span>
-              </button>
-
               <Button asChild variant="outline" className="rounded-full">
                 <a href="/quest" className="flex items-center gap-2">
                   <Ticket className="w-4 h-4" />
