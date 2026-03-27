@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Flag, Heart, Pencil, Trash2 } from "lucide-react";
+import { Flag, Heart, Pencil, Share2, Trash2 } from "lucide-react";
 
 function getInitials(name: string | null | undefined) {
   const trimmed = name?.trim();
@@ -26,6 +26,7 @@ interface CaseDetailModalProps {
   onClose: () => void;
   onFavoriteToggle: (id: number) => void;
   onReport: (id: number, ownerUserId: number) => void;
+  onShare: (caseStudy: Pick<CaseStudy, "id" | "title" | "description">) => void;
   onDelete: (id: number) => void;
   onEdit: (id: number) => void;
   canEdit: boolean;
@@ -38,6 +39,7 @@ export function CaseDetailModal({
   onClose,
   onFavoriteToggle,
   onReport,
+  onShare,
   onDelete,
   onEdit,
   canEdit,
@@ -71,6 +73,10 @@ export function CaseDetailModal({
 
   const handleReportClick = () => {
     onReport(caseStudy.id, caseStudy.userId);
+  };
+
+  const handleShareClick = () => {
+    onShare(caseStudy);
   };
 
   const isEdited =
@@ -130,6 +136,14 @@ export function CaseDetailModal({
                     caseStudy.isFavorite ? "fill-red-500 text-red-500" : ""
                   }`}
                 />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleShareClick}
+                aria-label="Share post"
+              >
+                <Share2 className="w-5 h-5" />
               </Button>
               <Button
                 variant="ghost"

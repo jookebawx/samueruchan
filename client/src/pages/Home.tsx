@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Flag, Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Sun, Ticket, User } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Flag, Heart, LogOut, MessageCircle, Moon, Pencil, Plus, Search, Share2, Sun, Ticket, User } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AddCaseModal } from "@/components/AddCaseModal";
 import { CaseDetailModal } from "@/components/CaseDetailModal";
 import { Switch } from "@/components/ui/switch";
@@ -52,6 +52,7 @@ export default function Home() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCaseId, setEditingCaseId] = useState<number | null>(null);
   const [isAiDiscussionOpen, setIsAiDiscussionOpen] = useState(false);
+  const hasHandledSharedPostRef = useRef(false);
   const { theme, toggleTheme, switchable } = useTheme();
   const toggleFavoriteMutation = trpc.caseStudies.toggleFavorite.useMutation({
     onSuccess: () => utils.caseStudies.list.invalidate(),
@@ -197,6 +198,47 @@ export default function Home() {
     setEditingCaseId(caseId);
   };
 
+  const getShareUrl = (caseId: number) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("post", String(caseId));
+    return url.toString();
+  };
+
+  const handleShareCase = async (
+    caseStudy: Pick<CaseStudy, "id" | "title" | "description">,
+    event?: React.MouseEvent
+  ) => {
+    event?.stopPropagation();
+
+    const shareUrl = getShareUrl(caseStudy.id);
+    const shareData: ShareData = {
+      title: caseStudy.title,
+      text: caseStudy.description,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success("Share link copied. Paste it on social media.");
+        return;
+      }
+
+      window.prompt("Copy this link to share:", shareUrl);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      console.error(error);
+      toast.error("Failed to share this post.");
+    }
+  };
+
   const formatDateTime = (timestamp: number) =>
     new Intl.DateTimeFormat("en-US", {
       year: "numeric",
@@ -219,6 +261,28 @@ export default function Home() {
       window.location.href = getLoginUrl({ promptSelectAccount: true });
     }
   };
+
+  useEffect(() => {
+    if (listQuery.isLoading || hasHandledSharedPostRef.current) {
+      return;
+    }
+
+    hasHandledSharedPostRef.current = true;
+
+    const rawPostId = new URLSearchParams(window.location.search).get("post");
+    if (!rawPostId) {
+      return;
+    }
+
+    const sharedPostId = Number(rawPostId);
+    if (!Number.isInteger(sharedPostId)) {
+      return;
+    }
+
+    if (cases.some((item) => item.id === sharedPostId)) {
+      setSelectedCaseId(sharedPostId);
+    }
+  }, [cases, listQuery.isLoading]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -287,7 +351,7 @@ export default function Home() {
                   className="flex items-center gap-2 rounded-full"
                 >
                   <Plus className="w-4 h-4" />
-                  <span className="text-sm">Add Case Study</span>
+                  <span className="text-sm">Post</span>
                 </Button>
               ) : null}
               {user?.role === "admin" && (
@@ -425,12 +489,22 @@ export default function Home() {
                           size="icon"
                           className="h-8 w-8"
                           onClick={(e) => handleFavoriteClick(e, caseStudy.id)}
+                          aria-label="Toggle favorite"
                         >
                           <Heart
                             className={`w-4 h-4 ${
                               caseStudy.isFavorite ? "fill-red-500 text-red-500" : ""
                             }`}
                           />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => handleShareCase(caseStudy, e)}
+                          aria-label="Share post"
+                        >
+                          <Share2 className="w-4 h-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -494,6 +568,7 @@ export default function Home() {
           onClose={() => setSelectedCaseId(null)}
           onFavoriteToggle={handleFavoriteToggle}
           onReport={handleReportCase}
+          onShare={handleShareCase}
           onEdit={handleEditCase}
           onDelete={handleDeleteCase}
           canEdit={canEditSelected}
