@@ -24,7 +24,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 
 type Category = "all" | "trending" | "liked" | "prompt" | "automation" | "tools" | "business";
-const DIFY_CHATBOT_TOKEN = "xeLQIFLhBycwJRFF";
+const DIFY_CHATBOT_TOKEN = "U7d3NjMqLhzlyWEd";
 const DIFY_EMBED_SCRIPT_ID = DIFY_CHATBOT_TOKEN;
 const DIFY_EMBED_SCRIPT_SRC = "https://udify.app/embed.min.js";
 const DIFY_STYLE_ID = "dify-chatbot-style-overrides";
